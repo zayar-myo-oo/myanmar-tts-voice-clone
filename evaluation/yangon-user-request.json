@@ -1,0 +1,4 @@
+[
+  {"id":"yangon","category":"user requested MMS narration; ၂၆၀ဝ interpreted as 2600 and spelled out","expected":"generate","text":"ရန်ကုန်မြို့သည် လွန်ခဲ့သည့် နှစ်ပေါင်း နှစ်ထောင့်ခြောက်ရာ အထက်ကစ၍ မြတ်စွာဘုရားသခင်၏ ဆံတော်ဓာတ်မြတ်များနှင့် စပ်လျဉ်းပြီးလျှင် သမိုင်းနှင့် ပေါ်ပေါက်လာခဲ့သော်လည်း ဘုရားဖူးစခန်းအဖြစ်သာ တည်ရှိခဲ့သည်။"},
+  {"id":"world","category":"user requested pronunciation comparison","expected":"generate","text":"ကမ္ဘာကြီးက တည်ရှိနေတာကြာပြီ ကြာကြာကြီးတည်ရှိနေတာ တည်ရှိမှုက ကြာကြာကြီးပါ ကမ္ဘာကြီး"}
+]

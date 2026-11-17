@@ -1,0 +1,267 @@
+{
+  "$defs": {
+    "GlobalSettings": {
+      "additionalProperties": false,
+      "properties": {
+        "speed": {
+          "default": 1.0,
+          "maximum": 2.0,
+          "minimum": 0.5,
+          "title": "Speed",
+          "type": "number"
+        },
+        "pitch": {
+          "default": 0.0,
+          "description": "semitones added to the voice default",
+          "maximum": 6.0,
+          "minimum": -6.0,
+          "title": "Pitch",
+          "type": "number"
+        },
+        "energy": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Energy"
+        },
+        "pause_scale": {
+          "default": 1.0,
+          "description": "multiplies every segment pause",
+          "maximum": 4.0,
+          "minimum": 0.0,
+          "title": "Pause Scale",
+          "type": "number"
+        }
+      },
+      "title": "GlobalSettings",
+      "type": "object"
+    },
+    "Segment": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_\\-]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "voice_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "overrides the document voice",
+          "title": "Voice Id"
+        },
+        "emotion": {
+          "anyOf": [
+            {
+              "enum": [
+                "neutral",
+                "curious",
+                "excited",
+                "calm",
+                "angry",
+                "sad",
+                "suspenseful",
+                "happy",
+                "surprised"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Emotion"
+        },
+        "delivery": {
+          "anyOf": [
+            {
+              "enum": [
+                "normal",
+                "soft",
+                "whisper",
+                "shout",
+                "narrator",
+                "podcast",
+                "energetic"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delivery"
+        },
+        "emphasis": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Emphasis"
+        },
+        "energy": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Energy"
+        },
+        "speed": {
+          "anyOf": [
+            {
+              "maximum": 2.0,
+              "minimum": 0.5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "multiplied with global speed",
+          "title": "Speed"
+        },
+        "pitch": {
+          "anyOf": [
+            {
+              "maximum": 6.0,
+              "minimum": -6.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "added to global pitch",
+          "title": "Pitch"
+        },
+        "pause_before_ms": {
+          "default": 0,
+          "maximum": 10000,
+          "minimum": 0,
+          "title": "Pause Before Ms",
+          "type": "integer"
+        },
+        "pause_after_ms": {
+          "default": 0,
+          "maximum": 10000,
+          "minimum": 0,
+          "title": "Pause After Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "title": "Segment",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "project_name": {
+      "default": "Untitled",
+      "maxLength": 200,
+      "title": "Project Name",
+      "type": "string"
+    },
+    "voice_id": {
+      "title": "Voice Id",
+      "type": "string"
+    },
+    "preset": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Preset"
+    },
+    "language": {
+      "default": "my-MM",
+      "enum": [
+        "my-MM",
+        "en"
+      ],
+      "title": "Language",
+      "type": "string"
+    },
+    "global_settings": {
+      "$ref": "#/$defs/GlobalSettings",
+      "default": {
+        "speed": 1.0,
+        "pitch": 0.0,
+        "energy": null,
+        "pause_scale": 1.0
+      }
+    },
+    "segments": {
+      "items": {
+        "$ref": "#/$defs/Segment"
+      },
+      "maxItems": 500,
+      "minItems": 1,
+      "title": "Segments",
+      "type": "array"
+    }
+  },
+  "required": [
+    "voice_id",
+    "segments"
+  ],
+  "title": "VoiceDirection",
+  "type": "object",
+  "$id": "https://github.com/myanmar-voice-studio/schemas/voice-direction-1.0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

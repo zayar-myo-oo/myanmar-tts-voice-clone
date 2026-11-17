@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "note": "Nara Mini v1 voice presets. pitch_semitones and tempo are DSP post-processing (ffmpeg), not native model controls.",
+  "presets": {
+    "male_calm": {
+      "display_name": "Male — Young Narrator",
+      "voice": "htet-myat",
+      "style_offset": 0,
+      "lowpass_hz": 0,
+      "pitch_semitones": 2.0,
+      "tempo": 1.0,
+      "sentence_gap_s": 0.28,
+      "pitch_method": "rubberband_shifted",
+      "post_filter": "bandreject=f=3600:width_type=q:w=20,bandreject=f=4800:width_type=q:w=20,bandreject=f=6000:width_type=q:w=20,bandreject=f=7200:width_type=q:w=20,bandreject=f=8400:width_type=q:w=20,bandreject=f=9600:width_type=q:w=20,bandreject=f=10800:width_type=q:w=20,equalizer=f=180:t=q:w=0.9:g=-6,equalizer=f=3200:t=q:w=1:g=3,highpass=f=80:p=2,deesser=i=0.4,lowpass=f=9000:p=2",
+      "user_rating": "Y4 (Htet Myat +2 st formant-shifted before Vocos, young EQ) chosen 2026-11-17",
+      "resynth": "vocos"
+    },
+    "female_warm": {
+      "display_name": "Female — Warm Natural",
+      "voice": "shoon",
+      "style_offset": 0,
+      "lowpass_hz": 0,
+      "pitch_semitones": 0,
+      "tempo": 1.0,
+      "sentence_gap_s": 0.2,
+      "user_rating": "F11 (Shoon, Vocos re-synthesis + 1200 Hz-harmonic notches 3.6-10.8 kHz + de-esser) chosen 2026-11-17",
+      "pitch_method": "rubberband",
+      "post_filter": "bandreject=f=3600:width_type=q:w=20,bandreject=f=4800:width_type=q:w=20,bandreject=f=6000:width_type=q:w=20,bandreject=f=7200:width_type=q:w=20,bandreject=f=8400:width_type=q:w=20,bandreject=f=9600:width_type=q:w=20,bandreject=f=10800:width_type=q:w=20,highpass=f=80:p=2,deesser=i=0.4,lowpass=f=9000:p=2",
+      "resynth": "vocos"
+    },
+    "male_deep": {
+      "display_name": "Male — Deep Calm (Htet Myat)",
+      "voice": "htet-myat",
+      "style_offset": 0,
+      "lowpass_hz": 0,
+      "pitch_semitones": -1.5,
+      "tempo": 0.95,
+      "sentence_gap_s": 0.28,
+      "user_rating": "previous male_calm (E+G chain); kept as alternative 2026-11-17",
+      "pitch_method": "rubberband",
+      "post_filter": "bandreject=f=3600:width_type=q:w=20,bandreject=f=4800:width_type=q:w=20,bandreject=f=6000:width_type=q:w=20,bandreject=f=7200:width_type=q:w=20,bandreject=f=8400:width_type=q:w=20,bandreject=f=9600:width_type=q:w=20,bandreject=f=10800:width_type=q:w=20,highpass=f=90:p=2,lowpass=f=7000:p=2"
+    }
+  }
+}

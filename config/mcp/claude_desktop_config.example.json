@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "myanmar-voice-studio": {
+      "command": "C:\path\to\aivoiceclone\.venv-nara\Scripts\mvs-mcp.exe",
+      "env": {
+        "MVS_PROJECT_ROOT": "C:\path\to\aivoiceclone",
+        "MVS_EXPORT_DIR": "C:\path\to\aivoiceclone\exports",
+        "PYTHONIOENCODING": "utf-8"
+      }
+    }
+  }
+}

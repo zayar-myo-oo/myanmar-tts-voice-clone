@@ -1,0 +1,8 @@
+[
+  {"id": "greeting", "category": "greeting", "text": "မင်္ဂလာပါ။ ဒီနေ့ နေကောင်းလား။", "expected": "generate"},
+  {"id": "narration", "category": "neutral narration", "text": "မနက်ခင်းမှာ ငှက်ကလေးတွေ သီချင်းဆိုနေကြတယ်။ လေပြည်လေးလည်း တိုက်နေတယ်။", "expected": "generate"},
+  {"id": "question", "category": "question and tone", "text": "မင်းသိလား။ ဒီအကြောင်းကို ဘယ်သူ ပြောပြတာလဲ။", "expected": "generate"},
+  {"id": "numbers_spelled", "category": "numbers written as words", "text": "မနက် ကိုးနာရီမှာ တွေ့ကြမယ်။ စာအုပ် သုံးအုပ် ယူလာပါ။", "expected": "generate"},
+  {"id": "digits", "category": "unsupported digits", "text": "မနက် ၉ နာရီမှာ တွေ့မယ်။", "expected": "reject"},
+  {"id": "mixed_english", "category": "unsupported mixed English", "text": "ဒီနေ့ AI အကြောင်း ပြောမယ်။", "expected": "reject"}
+]

@@ -1,0 +1,16 @@
+{
+  "backed_up_at": "20261117-194631",
+  "male_calm": {
+    "display_name": "Male — Young Narrator",
+    "voice": "htet-myat",
+    "style_offset": 0,
+    "lowpass_hz": 0,
+    "pitch_semitones": 2.0,
+    "tempo": 1.0,
+    "sentence_gap_s": 0.28,
+    "pitch_method": "rubberband_shifted",
+    "post_filter": "bandreject=f=3600:width_type=q:w=20,bandreject=f=4800:width_type=q:w=20,bandreject=f=6000:width_type=q:w=20,bandreject=f=7200:width_type=q:w=20,bandreject=f=8400:width_type=q:w=20,bandreject=f=9600:width_type=q:w=20,bandreject=f=10800:width_type=q:w=20,equalizer=f=180:t=q:w=0.9:g=-6,equalizer=f=3200:t=q:w=1:g=3,highpass=f=80:p=2,deesser=i=0.4,lowpass=f=9000:p=2",
+    "user_rating": "Y4 (Htet Myat +2 st formant-shifted before Vocos, young EQ) chosen 2026-11-17",
+    "resynth": "vocos"
+  }
+}

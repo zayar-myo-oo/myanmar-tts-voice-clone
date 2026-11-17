@@ -1,0 +1,36 @@
+.venv/
+.venv-nara/
+.venv-f5/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+node_modules/
+dist/
+target/
+.env
+.env.*
+!.env.example
+data/
+models/
+outputs/
+datasets/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.wav
+*.mp3
+reports/environment*.json
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+
+# Candidate TTS environment (separate from the pinned inference venv)
+.venv-myanmartts/
+
+# Private voice recordings and derived data (never commit)
+recordings/
+
+# MCP exports (generated audio)
+exports/

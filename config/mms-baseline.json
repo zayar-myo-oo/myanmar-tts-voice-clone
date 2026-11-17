@@ -1,0 +1,17 @@
+{
+  "model_id": "facebook/mms-tts-mya",
+  "revision": "052c6e19334199051a5353c73e7e0b8085490749",
+  "license": "CC-BY-NC-4.0",
+  "purpose": "Personal noncommercial neutral Burmese evaluation; not the final product model",
+  "weights_file": "model.safetensors",
+  "weights_sha256": "d9b03f68cf28ae122cbbe799684e2714a4c7ca701149c15dd23fa4fb8d4b738d",
+  "weights_bytes": 145242104,
+  "files": ["README.md", "config.json", "model.safetensors", "special_tokens_map.json", "tokenizer_config.json", "vocab.json"],
+  "expected": {"model_type": "vits", "num_speakers": 1, "sampling_rate": 16000, "is_uroman": false},
+  "unsupported": ["voice_cloning", "speaker_selection", "emotion", "whisper", "shout", "pitch", "energy", "emphasis"],
+  "sources": [
+    "https://huggingface.co/facebook/mms-tts-mya/tree/052c6e19334199051a5353c73e7e0b8085490749",
+    "https://github.com/ylacombe/finetune-hf-vits",
+    "https://creativecommons.org/licenses/by-nc/4.0/"
+  ]
+}
