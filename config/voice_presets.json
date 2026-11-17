@@ -11,7 +11,7 @@
       "tempo": 1.0,
       "sentence_gap_s": 0.28,
       "pitch_method": "rubberband",
-      "post_filter": "bandreject=f=6000:width_type=q:w=12,highpass=f=75:p=2,deesser=i=0.25,lowpass=f=9500:p=2",
+      "post_filter": "bandreject=f=6000:width_type=q:w=8,highpass=f=75:p=2,deesser=i=0.25,lowpass=f=9500:p=2",
       "user_rating": "Clean chain: Vocos re-synthesis plus minimal rumble/de-ess/band-limit filtering; previous FIX3 chain retained in config/backups",
       "resynth": "vocos",
       "style_mode": "longform"
@@ -26,7 +26,7 @@
       "sentence_gap_s": 0.2,
       "user_rating": "Clean chain: Vocos re-synthesis plus minimal rumble/de-ess/band-limit filtering; previous W3 chain retained in config/backups",
       "pitch_method": "rubberband",
-      "post_filter": "bandreject=f=7200:width_type=q:w=12,highpass=f=75:p=2,deesser=i=0.25,lowpass=f=9500:p=2",
+      "post_filter": "bandreject=f=7200:width_type=q:w=8,highpass=f=75:p=2,deesser=i=0.15,lowpass=f=9500:p=2",
       "resynth": "vocos",
       "style_mode": "longform"
     },
