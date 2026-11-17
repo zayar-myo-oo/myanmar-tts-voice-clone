@@ -103,7 +103,14 @@ export function ReviewPanel({ client }: { client: StudioClient }) {
   if (error) return <p role="alert" className="text-rose-300">{error}</p>;
   if (!data) return <div className="card h-64 animate-pulse" />;
   const total = data.items.length;
-  const pct = total ? Math.round(((data.approved + data.rejected) / total) * 100) : 0;
+  const reviewedPct = total ? Math.round(((data.approved + data.rejected) / total) * 100) : 0;
+  const targetMinutes = 30;
+  const trainingPct = Math.min(100, Math.round((data.approved_minutes / targetMinutes) * 100));
+  const remainingMinutes = Math.max(0, targetMinutes - data.approved_minutes);
+  const averageSeconds = data.approved
+    ? (data.approved_minutes * 60) / data.approved
+    : 4;
+  const estimatedClips = remainingMinutes > 0 ? Math.ceil((remainingMinutes * 60) / averageSeconds) : 0;
 
   return (
     <div className="space-y-6">
@@ -118,12 +125,24 @@ export function ReviewPanel({ client }: { client: StudioClient }) {
         </select>
       </header>
 
-      <section className="card space-y-2 p-4 text-sm">
+      <section className="card space-y-4 p-4 text-sm">
         <div className="flex flex-wrap gap-4">
           <span data-testid="review-counts">အတည်ပြု <b className="text-emerald-300">{data.approved}</b> · စစ်ရန် <b className="text-amber-300">{data.draft}</b> · ဖယ် <b className="text-rose-300">{data.rejected}</b> / {total}</span>
-          <span className="ml-auto text-slate-400">အသုံးပြုနိုင်: <b className="text-slate-200">{data.approved_minutes.toFixed(1)}</b> / ၃၀ မိနစ်</span>
+          <span className="ml-auto text-slate-400">Review ပြီးမှု: <b className="text-slate-200">{reviewedPct}%</b></span>
         </div>
-        <div className="h-1.5 rounded-full bg-white/10"><div className="h-1.5 rounded-full bg-emerald-400" style={{ width: `${pct}%` }} /></div>
+        <div className="space-y-1">
+          <div className="flex justify-between gap-4 text-xs text-slate-400">
+            <span>Training အသံကြာချိန်</span>
+            <span><b className="text-slate-200">{data.approved_minutes.toFixed(1)}</b> / ၃၀ မိနစ် ({trainingPct}%)</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-white/10"><div className="h-1.5 rounded-full bg-emerald-400" style={{ width: `${trainingPct}%` }} /></div>
+        </div>
+        {remainingMinutes > 0 && (
+          <p className="rounded-lg bg-sky-500/10 px-3 py-2 text-sky-200">
+            အနည်းဆုံး training ပမာဏပြည့်ရန် <b>{remainingMinutes.toFixed(1)} မိနစ်</b>ခန့် ထပ်ပြောပါ
+            <span className="text-sky-300"> (လက်ရှိအရှည်အတိုင်းဆို ဖိုင် {estimatedClips} ခုခန့်)</span>။
+          </p>
+        )}
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
@@ -137,7 +156,13 @@ export function ReviewPanel({ client }: { client: StudioClient }) {
             ))}
           </div>
           <ul className="flex-1 overflow-y-auto" aria-label="clips">
-            {visible.length === 0 && <li className="p-4 text-sm text-slate-500">ဒီထဲမှာ မရှိတော့ပါ 🎉</li>}
+            {visible.length === 0 && (
+              <li className="p-4 text-sm text-slate-500">
+                {filter === "todo" && data.draft === 0
+                  ? `ဖိုင် ${data.approved} ခုလုံး စစ်ပြီးပါပြီ။ “အားလုံး” မှာ ပြန်ကြည့်နိုင်ပါတယ်။`
+                  : "ဒီအမျိုးအစားထဲမှာ ဖိုင်မရှိပါ။"}
+              </li>
+            )}
             {visible.map((i) => (
               <li key={i.file}>
                 <button onClick={() => setCurrent(i.file)} aria-current={i.file === current}
