@@ -553,6 +553,27 @@ def downloaded(name: str):
     return FileResponse(f, filename=f.name)
 
 
+@app.post("/api/projects/{pid}/split")
+def split_video(pid: str, body: dict) -> dict:
+    """Video Splitter: cut the finished video into ~N-second parts (Part 1, 2, ...) for TikTok.
+    Re-encodes with forced keyframes so every part starts cleanly; captions stay burned in."""
+    from .media import ffmpeg_bin, run as ff_run, video_encoder_args
+    p = _project(pid)
+    src = p.path("export", "final.mp4")
+    if not src.exists():
+        raise HTTPException(400, "ဗီဒီယို မထုတ်ရသေးပါ။")
+    sec = max(15, min(600, int(body.get("seconds", 60))))
+    out = p.path("export", "parts")
+    out.mkdir(exist_ok=True)
+    for f in out.glob("part_*.mp4"):
+        f.unlink(missing_ok=True)
+    ff_run([ffmpeg_bin(), "-y", "-v", "error", "-i", str(src), "-map", "0", *video_encoder_args(),
+            "-force_key_frames", f"expr:gte(t,n_forced*{sec})", "-c:a", "aac", "-b:a", "192k",
+            "-f", "segment", "-segment_time", str(sec), "-reset_timestamps", "1", str(out / "part_%02d.mp4")])
+    parts = sorted(out.glob("part_*.mp4"))
+    return {"parts": [f"export/parts/{f.name}" for f in parts]}
+
+
 app.mount("/", StaticFiles(directory=WEB, html=True), name="web")
 
 
