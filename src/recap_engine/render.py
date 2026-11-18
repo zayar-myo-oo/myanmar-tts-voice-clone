@@ -256,7 +256,7 @@ def stage_render(ctx: Context) -> dict[str, str]:
     for i, c in enumerate(clips):
         nf = frames_for(c, FPS)
         h = hash_obj({"src": p.manifest.source.get("file_hash"), "a": c["src_start"], "b": c["src_end"], "vf": vf,
-                      "nf": nf})
+                      "nf": nf, "enc": video_encoder_args(s.proxy, True)})  # new quality settings -> re-cut old clips
         out = cdir / f"clip_{h}.mp4"
         if out.exists() or h in sched:
             reused += 1
