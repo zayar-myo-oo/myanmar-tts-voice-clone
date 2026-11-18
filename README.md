@@ -182,4 +182,5 @@ cd apps/desktop/src-tauri && cargo test
 - Evaluation မှာ သုံးခဲ့တဲ့ MMS နဲ့ F5-Myanmar-TTS က **CC-BY-NC** ဖြစ်လို့ စီးပွားဖြစ် မသုံးရပါ။ App ထဲမှာ မပါပါ။
 - FFmpeg၊ model weights နဲ့ dataset တွေမှာ သီးသန့် လိုင်စင်တွေ ရှိပါတယ်။ Model weights နဲ့ ကိုယ်ပိုင် အသံသွင်းချက်တွေကို Git ထဲ မထည့်ပါ။
 #   m y a n m a r - t t s - v o i c e - c l o n e  
+ #   d r a m a - r e c a p - a i  
  
