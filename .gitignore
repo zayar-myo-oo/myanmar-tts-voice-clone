@@ -34,3 +34,13 @@ recordings/
 
 # MCP exports (generated audio)
 exports/
+
+# drama recap
+projects/
+test_media/
+.venv-recap/
+config/recap_voice_rates.json
+config/api_keys.json
+projects/_uploads/
+models/
+config/app_settings.json

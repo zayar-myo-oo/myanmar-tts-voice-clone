@@ -1,0 +1,481 @@
+﻿<!doctype html>
+<html lang="my">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Drama Recap Studio</title>
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><meta name="theme-color" content="#1565d8">
+<style>
+:root{--bg:#eef4fc;--side:#f7faff;--card:#fff;--line:#dfe6f1;--fg:#141a26;--mut:#6a7487;--acc:#1565d8;--acc2:#e9f1fd;--ok:#1f9d55;--warn:#c27c0e;--err:#d23c3c;--stage:#dde7f3}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0d1118;--side:#121823;--card:#161d2a;--line:#253043;--fg:#e8edf6;--mut:#8d98ad;--acc:#4f8ff7;--acc2:#1b2a44;--stage:#0f151f}}
+:root[data-theme=dark]{--bg:#0d1118;--side:#121823;--card:#161d2a;--line:#253043;--fg:#e8edf6;--mut:#8d98ad;--acc:#4f8ff7;--acc2:#1b2a44;--stage:#0f151f}
+*{box-sizing:border-box}html,body{height:100%}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 "Noto Sans Myanmar","Myanmar Text","Segoe UI",system-ui,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:230px 1fr;height:100vh}
+aside{background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:16px 12px;gap:4px}
+.logo{display:flex;gap:10px;align-items:center;padding:4px 8px 18px}.logo b{display:block;font-size:16px}.logo small{color:var(--mut);font-size:11px}
+.logo i{width:36px;height:36px;border-radius:10px;background:var(--acc);display:grid;place-items:center;color:#fff;font-style:normal;font-weight:700}
+nav a{display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:10px;color:var(--fg);text-decoration:none}nav a.on{background:var(--acc2);color:var(--acc);font-weight:600}nav a:hover{background:var(--acc2)}
+.sp{flex:1}.foot{font-size:12px;color:var(--mut);padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.foot .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--err);margin-right:6px}.foot .dot.on{background:var(--ok)}
+main{overflow:auto;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:12px;padding:14px 22px}.top h1{font-size:19px;margin:0}.top .sub{color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:520px}
+.pill{font-size:12px;border:1px solid var(--line);background:var(--card);border-radius:99px;padding:4px 12px}.pill.acc{color:var(--acc);border-color:var(--acc)}
+.btn{border:0;background:var(--acc);color:#fff;border-radius:10px;padding:9px 16px;cursor:pointer;font-weight:600;text-decoration:none;display:inline-block}.btn:disabled{opacity:.45;cursor:default}
+.btn.ghost{background:var(--acc2);color:var(--acc)}.btn.line{background:transparent;border:1px solid var(--line);color:var(--fg)}.btn.red{background:transparent;border:1px solid var(--err);color:var(--err)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px}
+.studio{display:grid;grid-template-columns:1fr 360px;gap:16px;padding:0 22px 22px;flex:1;min-height:0}
+@media(max-width:1100px){.studio{grid-template-columns:1fr}.app{grid-template-columns:1fr}aside{display:none}}
+.stagewrap{display:flex;flex-direction:column;gap:12px;min-height:0}
+.stage{flex:1;background:var(--stage);border-radius:16px;display:flex;align-items:safe center;justify-content:safe center;padding:56px 24px 24px;position:relative;min-height:420px;overflow:auto}
+.vbox{position:relative;display:flex;gap:14px;align-items:center}
+.vwrap{position:relative;border-radius:16px;overflow:hidden;background:#000;box-shadow:0 10px 30px #0003}
+.vwrap video{display:block;max-width:min(62vw,760px);max-height:62vh}
+.ov{position:absolute;inset:0;cursor:default;touch-action:none}.ov.draw{cursor:crosshair}
+.bx{position:absolute;border:2px solid #fff;border-radius:6px;background:#ffffff14;box-shadow:0 0 0 1px #0006}
+.bx.sel{border-color:#4f8ff7}.bx .h{position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #4f8ff7;cursor:nwse-resize}
+.crop{position:absolute;border:2px dashed #ffd400;box-shadow:0 0 0 9999px #0008;pointer-events:none}
+.cap{position:absolute;left:2%;right:2%;border:1.5px dashed #fff9;border-radius:30px;text-align:center;cursor:ns-resize;padding:2px 0}
+.cap span{font-weight:700}
+.tools{display:flex;flex-direction:column;gap:12px}.tool{display:flex;flex-direction:column;align-items:center;font-size:11px;gap:3px;color:var(--fg);cursor:pointer;background:none;border:0}
+.tool b{width:40px;height:40px;border-radius:50%;background:#253043;color:#fff;display:grid;place-items:center;font-size:17px}.tool.on b{background:var(--acc)}
+.bxpanel{position:absolute;transform:translateX(-50%);background:#253043;color:#fff;border-radius:99px;padding:6px 14px;display:flex;gap:8px;align-items:center;white-space:nowrap;z-index:3}
+.drop{border:2px dashed var(--line);border-radius:16px;padding:46px;text-align:center;background:var(--card);max-width:560px}
+.drop.hover{border-color:var(--acc);background:var(--acc2)}
+.bar{display:flex;align-items:center;gap:8px;padding:12px 16px;flex-wrap:wrap}.chip{background:var(--acc2);color:var(--acc);border-radius:8px;padding:2px 9px;font-size:12px}
+.panel{display:flex;flex-direction:column;min-height:0;overflow:hidden}.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--bg);margin:12px;border-radius:12px;padding:4px}
+.tabs button{border:0;background:none;padding:8px 4px;border-radius:9px;cursor:pointer;color:var(--mut);font-weight:600}.tabs button.on{background:var(--card);color:var(--fg);box-shadow:0 1px 3px #0001}
+.pbody{overflow:auto;padding:0 14px 16px;flex:1}
+.lbl{font-size:12px;color:var(--mut);margin:14px 0 6px;font-weight:600}
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.mode{border:1.5px solid var(--line);border-radius:12px;padding:8px;cursor:pointer;font-size:12px}
+.mode b{display:block;font-size:13px}.mode span{color:var(--mut);font-size:11px}.mode.on{border-color:var(--acc);background:var(--acc2)}
+.seg{display:flex;background:var(--bg);border-radius:10px;padding:3px;gap:3px;flex-wrap:wrap}.seg button{flex:1;border:0;background:none;padding:6px 4px;border-radius:8px;cursor:pointer;font-weight:600;color:var(--mut);font-size:13px}.seg button.on{background:var(--card);color:var(--fg);box-shadow:0 1px 3px #0001}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin-top:8px}
+.row small{display:block;color:var(--mut);font-size:11px}
+.sw{position:relative;width:40px;height:22px;flex:none}.sw input{opacity:0;width:0;height:0}.sw i{position:absolute;inset:0;border-radius:99px;background:#c5cedb;cursor:pointer;transition:.2s}
+.sw i:before{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s}.sw input:checked+i{background:var(--acc)}.sw input:checked+i:before{transform:translateX(18px)}
+.sl{display:flex;align-items:center;gap:8px}.sl input{flex:1}.sl .v{min-width:46px;text-align:right;color:var(--acc);font-weight:600;font-size:12px}
+input[type=range]{accent-color:var(--acc)}
+.in{width:100%;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 10px}
+.colors{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.colors i{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid var(--line)}.colors i.on{outline:2.5px solid var(--acc);outline-offset:2px}
+.voice{display:flex;align-items:center;gap:10px;border:1.5px solid var(--line);border-radius:12px;padding:8px 10px;margin-top:6px;cursor:pointer}.voice.on{border-color:var(--acc);background:var(--acc2)}
+.voice .av{width:32px;height:32px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;font-weight:700}.voice .pl{margin-left:auto;border:0;background:var(--acc2);color:var(--acc);border-radius:50%;width:30px;height:30px;cursor:pointer}
+.prog{max-width:640px;margin:10px auto;width:100%;padding:0 16px}.prog .card{padding:20px}
+.steps .s{display:flex;gap:10px;align-items:center;padding:7px 10px;border-radius:9px;color:var(--mut)}.steps .s.run{background:var(--acc2);color:var(--fg);font-weight:600}.steps .s.done{color:var(--fg)}
+.steps .s i{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:11px;font-style:normal;flex:none}
+.steps .s.done i{background:var(--ok);border-color:var(--ok);color:#fff}.steps .s.run i{border-color:var(--acc);border-top-color:transparent;animation:sp 1s linear infinite}.steps .s.failed i{background:var(--err);border-color:var(--err);color:#fff}
+@keyframes sp{to{transform:rotate(360deg)}}
+.pbar{height:7px;background:var(--line);border-radius:9px;overflow:hidden;margin:12px 0}.pbar b{display:block;height:100%;background:var(--acc);transition:width .5s}
+.note{background:#fff6e0;color:#7a5200;border:1px solid #f2dca0;border-radius:12px;padding:10px 14px;font-size:13px;margin-top:12px}
+:root[data-theme=dark] .note{background:#2a2312;color:#e9c46a;border-color:#4a3c18}
+details{margin-top:12px}details pre{background:var(--bg);border-radius:10px;padding:10px;max-height:240px;overflow:auto;font-size:11px;white-space:pre-wrap}
+.lib{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;padding:0 22px 22px}
+.lc{cursor:pointer;overflow:hidden}.lc .th{aspect-ratio:3/4;background:var(--stage) center/cover;display:grid;place-items:center;color:var(--mut);font-size:26px}.lc .m{padding:10px 12px}.lc .m b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st{font-size:11px;padding:1px 8px;border-radius:99px;background:var(--acc2);color:var(--acc)}.st.done{background:#e3f6eb;color:var(--ok)}.st.failed{background:#fde8e8;color:var(--err)}
+.set{display:grid;grid-template-columns:220px 1fr;gap:18px;padding:0 22px 22px;max-width:1100px}.set .menu{padding:8px;align-self:start}.set .menu a{display:block;padding:9px 12px;border-radius:9px;cursor:pointer}.set .menu a.on{background:var(--acc2);color:var(--acc);font-weight:600}
+.set .body{padding:20px 22px}.set h2{margin:0 0 2px;font-size:17px}.set .d{color:var(--mut);margin:0 0 14px;font-size:13px}
+.kbox{border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:10px}.tag{font-size:11px;border-radius:6px;padding:1px 7px;background:var(--acc2);color:var(--acc);margin-left:6px}.tag.ok{background:#e3f6eb;color:var(--ok)}
+.vo{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:0 22px 22px;max-width:1200px;width:100%;margin:0 auto}@media(max-width:900px){.vo{grid-template-columns:1fr}}
+.vo textarea{width:100%;min-height:360px;border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:12px;resize:vertical}
+.vgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.vchip{display:flex;align-items:center;justify-content:space-between;border:1.5px solid var(--line);border-radius:99px;padding:6px 6px 6px 14px;cursor:pointer}.vchip.on{border-color:var(--acc);background:var(--acc2);color:var(--acc);font-weight:600}
+.vchip button{border:0;background:none;color:var(--acc);cursor:pointer}
+.res{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;padding:0 22px 22px}@media(max-width:1000px){.res{grid-template-columns:1fr}}
+.res video{width:100%;max-height:72vh;background:#000;border-radius:14px}.beat{border-top:1px solid var(--line);padding:8px 0}.beat textarea{width:100%;min-height:52px;border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:6px}
+.warn{color:var(--warn)}.ok{color:var(--ok)}.err{color:var(--err)}.mut{color:var(--mut);font-size:12px}.hide{display:none!important}
+.logo i{background:linear-gradient(135deg,#1565d8,#7c4dff)}
+.btn{transition:transform .12s,box-shadow .12s}.btn:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 6px 16px #1565d833}
+.btn:not(.ghost):not(.line):not(.red){background:linear-gradient(135deg,var(--acc),#5b6cff)}
+.card{box-shadow:0 1px 2px #0000000a,0 8px 24px #1a2b4a0d}
+.stage{background:radial-gradient(circle at 30% 20%,#ffffff22,transparent 60%),repeating-conic-gradient(var(--stage) 0 25%,color-mix(in srgb,var(--stage) 92%,#000) 0 50%) 0 0/28px 28px}
+.lc{transition:transform .15s,box-shadow .15s}.lc:hover{transform:translateY(-3px);box-shadow:0 12px 30px #1a2b4a22}
+.mode,.voice,.vchip,.row{transition:border-color .15s,background .15s}.mode:hover,.voice:hover{border-color:var(--acc)}
+.top h1{background:linear-gradient(135deg,var(--fg),var(--acc));-webkit-background-clip:text;background-clip:text;color:transparent}
+.jobs{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}.jobs a{display:block;text-decoration:none;color:var(--fg);font-size:12px;border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:var(--card)}
+.jobs a b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}.jobs .pbar{margin:4px 0 0;height:4px}
+.kbd{font-size:10px;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--mut);margin-left:3px}
+#sb a,.note a,.mut a{color:var(--acc);font-weight:600}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#253043;color:#fff;padding:10px 18px;border-radius:12px;z-index:9;font-size:13px}
+</style>
+</head>
+<body>
+<div class="app">
+<aside>
+  <div class="logo"><i>DR</i><div><b>Drama Recap</b><small>Studio · local · free</small></div></div>
+  <nav id="nav">
+    <a href="#/home" data-r="home">🏠 One Click AI</a><a href="#/studio" data-r="studio">🎬 Studio</a><a href="#/voiceover" data-r="voiceover">🎙️ Voiceover</a>
+    <a href="#/finder" data-r="finder">🔎 Source Finder</a><a href="#/library" data-r="library">📁 Library</a><a href="#/settings" data-r="settings">⚙️ Settings</a>
+  </nav>
+  <div class="sp"></div>
+  <a id="installBtn" class="hide" style="padding:8px 12px;color:var(--acc);cursor:pointer;font-weight:600">⤓ Install app</a>
+  <div class="jobs" id="jobs"></div><div class="foot" id="foot"></div>
+</aside>
+<main id="view"></main>
+</div>
+<script>
+// ------------------------------------------------------------ helpers / state
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const api=(u,o={})=>fetch(u,o).then(async r=>{const t=await r.text();let j;try{j=JSON.parse(t)}catch(e){j=t}if(!r.ok)throw new Error((j&&(j.message||j.detail))||r.status);return j});
+const J=(m,b)=>({method:m,headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});
+const toast=m=>{const d=document.createElement("div");d.className="toast";d.textContent=m;document.body.append(d);setTimeout(()=>d.remove(),2600)};
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const DEF={mode:"recap",aspect:"9:16",fit:"blur_fill",hd:true,mirror:false,zoom:1,target:180,audio:"remove_vocals",voice:"male_calm",speed:1,
+  llm:"gemma4:26b",asr:"large-v3-turbo",hardsub:true,cap:{burn:true,font:"Noto Sans Myanmar",size:64,color:"#FFD400",outline_color:"#000000",outline:4,bold:true,box:false,position:"bottom",pos_pct:.86,max_chars_per_line:22,width_pct:1},
+  wmOn:false,wmText:"",logoOn:false,logo:null,wmPos:"top_right",postKit:true,hashtags:"",fyp:true,tf:false,tfPreset:"custom",rights:"permission_unknown",owner:"",notify:false,autoDl:false,brandAll:false};
+let prefs={...DEF,...LS.get("prefs",{})};if(prefs.asr==="belle-zh"&&!LS.get("asrFix",0)){prefs.asr="large-v3-turbo";LS.set("asrFix",1)}prefs.cap={...DEF.cap,...(prefs.cap||{})};const save=()=>LS.set("prefs",prefs);
+let S={file:null,url:"",src:null,boxes:[],crop:null,tool:"edit",sel:-1,tab:"video",pid:null,timer:null,logOpen:false};
+try{const t=localStorage.getItem("theme");if(t)document.documentElement.dataset.theme=t}catch(e){}
+const VOICES=[{id:"male_calm",n:"အေးချမ်း",g:"ကျား"},{id:"male_deep",n:"သြဇာ",g:"ကျား"},{id:"female_warm",n:"နွေးထွေး",g:"မ"},{id:"edge_thiha",n:"Thiha",g:"ကျား · Microsoft ☁"},{id:"edge_nilar",n:"Nilar",g:"မ · Microsoft ☁"}];
+const STEP_MY={import:"ဗီဒီယို ယူ",audio:"အသံ ထုတ်",separate:"အသံ ခွဲ",shots:"Scene ခွဲ",ocr:"စာတန်း ဖတ်",vision:"ပုံ နားလည်",transcribe:"စကား နားထောင်",script:"Script / ဘာသာပြန်",voice:"မြန်မာ အသံ",timeline:"Timeline",captions:"စာတန်းထိုး",render:"ဗီဒီယို ထုတ်",qc:"QC စစ်",rights:"Rights စစ်",export:"Post Kit"};
+// ------------------------------------------------------------ router
+function route(){const h=location.hash.replace(/^#\//,"")||"home";const [r,arg]=h.split("/");$$("#nav a").forEach(a=>a.classList.toggle("on",a.dataset.r===r||(r==="project"&&a.dataset.r==="library")));
+  clearInterval(S.timer);({home:Home,finder:Finder,studio:Studio,voiceover:Voiceover,library:Library,settings:Settings,project:Project}[r]||Home)(arg)}
+addEventListener("hashchange",route);
+// ------------------------------------------------------------ STUDIO
+function Studio(){
+  $("#view").innerHTML=`<div class="top"><h1>Studio</h1><span class="sub" id="fname">${S.file?esc(S.file.name):S.url?esc(S.url):"ဗီဒီယို တင်ပါ"}</span><span style="flex:1"></span><span class="pill acc" id="engPill">🔒 Local · Free</span></div>
+  <div class="studio"><div class="stagewrap"><div class="stage card" id="stage"></div>
+   <div class="card bar" id="sbar"></div></div><div class="card panel"><div class="tabs" id="tabs">${["video","voice","captions","extras"].map(t=>`<button data-t="${t}" class="${S.tab===t?"on":""}">${{video:"Video",voice:"Voice",captions:"Captions",extras:"Extras"}[t]}</button>`).join("")}</div><div class="pbody" id="pbody"></div></div></div>`;
+  $$("#tabs button").forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;$$("#tabs button").forEach(x=>x.classList.toggle("on",x===b));panel()});
+  stage();panel();bar();api("/api/engine").then(E=>{S.engine=E.mode;const pl=$("#engPill");if(pl&&E.mode==="cloud"){pl.textContent="☁ Cloud · "+E.llm;panel()}}).catch(()=>{})}
+function stage(){const st=$("#stage");
+  if(!S.src){st.innerHTML=`<div class="drop" id="drop"><div style="font-size:40px">🎞️</div><b>ဗီဒီယိုကို ဒီမှာ ဆွဲထည့်ပါ</b><p class="mut">MP4 · MOV · MKV — ဒီကွန်ပျူတာထဲမှာပဲ အလုပ်လုပ်ပါတယ်</p>
+    <button class="btn" onclick="$('#fi').click()">ဖိုင် ရွေးမယ်</button><input id="fi" type="file" accept="video/*" class="hide">
+    <p class="mut" style="margin:18px 0 6px">သို့မဟုတ် URL (YouTube, Bilibili, Douyin …)</p><div style="display:flex;gap:6px"><input class="in" id="urlIn" placeholder="https://"><button class="btn ghost" id="urlGo">ထည့်</button></div></div>`;
+    const d=$("#drop");d.ondragover=e=>{e.preventDefault();d.classList.add("hover")};d.ondragleave=()=>d.classList.remove("hover");
+    d.ondrop=e=>{e.preventDefault();if(e.dataTransfer.files[0])setFile(e.dataTransfer.files[0])};$("#fi").onchange=e=>e.target.files[0]&&setFile(e.target.files[0]);
+    $("#urlGo").onclick=()=>{const u=$("#urlIn").value.trim();if(u){S.url=u;S.file=null;S.src="url";Studio()}};return}
+  if(S.src==="url"){st.innerHTML=`<div class="drop"><div style="font-size:40px">🔗</div><b>${esc(S.url)}</b><p class="mut">Start နှိပ်ရင် ဒေါင်းပါမယ်။ Blur box ဆွဲချင်ရင် ဖိုင်နဲ့ တင်ပါ။</p><button class="btn line" onclick="resetSrc()">ပြန်ရွေးမယ်</button></div>`;return}
+  st.innerHTML=`<div class="vbox"><div><div class="vwrap" id="vw"><video id="vid" src="${S.src}" playsinline></video><div class="ov" id="ov"></div></div>
+   <div style="display:flex;align-items:center;gap:10px;margin-top:10px;background:#253043;color:#fff;border-radius:99px;padding:6px 14px">
+   <button class="tool" style="color:#fff" id="pp">▶</button><input type="range" id="seek" min="0" max="1000" value="0" style="flex:1"><span id="tm" style="font-size:12px">0:00</span><button class="tool" style="color:#fff" onclick="resetSrc()" title="ပြန်ရွေး">✕</button></div></div>
+   <div class="tools">${[["blur","＋","Blur"],["edit","✎","Edit"],["crop","⌗","Crop"],["done","✓","Done"]].map(([k,i,l])=>`<button class="tool ${S.tool===k?"on":""}" data-k="${k}" title="Shortcut: ${l[0]}"><b>${i}</b>${l}</button>`).join("")}</div></div>`;
+  const v=$("#vid");v.onloadedmetadata=()=>{S.dur=v.duration;drawOv();$("#tm").textContent=fmt(0)+" / "+fmt(v.duration)};v.ontimeupdate=()=>{$("#seek").value=v.currentTime/v.duration*1000;$("#tm").textContent=fmt(v.currentTime)+" / "+fmt(v.duration)};
+  $("#pp").onclick=()=>{v.paused?v.play():v.pause();$("#pp").textContent=v.paused?"▶":"⏸"};$("#seek").oninput=e=>v.currentTime=e.target.value/1000*v.duration;
+  $$(".tools .tool").forEach(b=>b.onclick=()=>{S.tool=b.dataset.k;if(S.tool==="done")S.sel=-1;$$(".tools .tool").forEach(x=>x.classList.toggle("on",x===b));drawOv()});
+  ovEvents()}
+const fmt=s=>isFinite(s)?`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`:"0:00";
+function setFile(f){S.file=f;S.url="";if(S.src&&S.src.startsWith("blob:"))URL.revokeObjectURL(S.src);S.src=URL.createObjectURL(f);S.boxes=[];S.crop=null;Studio()}
+function resetSrc(){S.file=null;S.url="";S.src=null;S.boxes=[];S.crop=null;Studio()}
+function drawOv(){const ov=$("#ov");if(!ov){bar();return}ov.className="ov"+(S.tool==="blur"||S.tool==="crop"?" draw":"");const c=prefs.cap;
+  const capTop=c.position==="top"?10:c.position==="middle"?50:c.position==="custom"?c.pos_pct*100:86;
+  ov.innerHTML=S.boxes.map((b,i)=>`<div class="bx ${i===S.sel?"sel":""}" data-i="${i}" style="left:${b.x0*100}%;top:${b.y0*100}%;width:${(b.x1-b.x0)*100}%;height:${(b.y1-b.y0)*100}%;backdrop-filter:blur(${b.strength/3}px);-webkit-backdrop-filter:blur(${b.strength/3}px)">${i===S.sel&&S.tool!=="done"?`<div class="h"></div>`:""}</div>`).join("")
+   +((prefs.border||"none")!=="none"?`<div style="position:absolute;inset:0;pointer-events:none;${prefs.border.includes("glow")?`box-shadow:inset 18px 0 30px -10px ${(prefs.glow||["#FF3B5C"])[0]},inset -18px 0 30px -10px ${(prefs.glow||["","#3B7BFF"])[1]};`:""}"></div>${prefs.border.includes("line")?`<div style="position:absolute;inset:3.5%;border:2px solid ${prefs.borderColor||"#FFFFFF"}aa;border-radius:12px;pointer-events:none"></div>`:""}`:"")
+   +(S.crop?`<div class="crop" style="left:${S.crop.x0*100}%;top:${S.crop.y0*100}%;width:${(S.crop.x1-S.crop.x0)*100}%;height:${(S.crop.y1-S.crop.y0)*100}%"></div>`:"")
+   +(c.burn?`<div class="cap" id="capb" title="ဆွဲရွှေ့ = နေရာ · ထောင့် = အရွယ် · scroll = စာလုံး" style="top:calc(${capTop}% - 1.1em);left:${(1-c.width_pct)/2*100}%;right:${(1-c.width_pct)/2*100}%;font-family:'${c.font}';font-size:${Math.max(8,c.size/1080*($("#vid")?.clientWidth||400)*.9)}px"><div class="ch" style="position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #ffd400;cursor:nwse-resize"></div><span style="color:${c.color};${c.bold?"":"font-weight:400;"}text-shadow:0 0 ${c.outline}px ${c.outline_color},0 0 ${c.outline}px ${c.outline_color};${c.box?"background:#000a;padding:0 8px;border-radius:4px":""}">မြန်မာ စာတန်းထိုး နမူနာ</span></div>`:"");
+  const sel=S.boxes[S.sel];if(sel&&S.tool!=="done"){const p=document.createElement("div");p.className="bxpanel";p.style.top=`calc(${sel.y0*100}% - 44px)`;p.style.left=`${(sel.x0+sel.x1)/2*100}%`;
+   p.innerHTML=`Blur <input type="range" min="2" max="40" value="${sel.strength}" id="bs"> <b>${sel.strength}</b> <button class="btn red" style="padding:2px 9px" id="bd">✕</button>`;ov.append(p);
+   $("#bs").oninput=e=>{sel.strength=+e.target.value;e.target.nextElementSibling.textContent=sel.strength;const el=$(`.bx[data-i="${S.sel}"]`);el.style.backdropFilter=el.style.webkitBackdropFilter=`blur(${sel.strength/3}px)`};
+   p.onpointerdown=e=>e.stopPropagation();$("#bd").onclick=()=>{S.boxes.splice(S.sel,1);S.sel=-1;drawOv();panel()}}
+  bar()}
+function ovEvents(){const ov=$("#ov");let drag=null;
+  const pt=e=>{const r=ov.getBoundingClientRect();return{x:Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),y:Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))}};
+  ov.onpointerdown=e=>{if(e.target.closest(".bxpanel"))return;const p=pt(e);ov.setPointerCapture(e.pointerId);
+    if(e.target.classList.contains("ch")){drag={k:"capsz",p,w0:prefs.cap.width_pct,s0:prefs.cap.size};return}
+    if(e.target.closest("#capb")&&S.tool!=="blur"&&S.tool!=="crop"){drag={k:"cap"};return}
+    const bi=e.target.closest(".bx");if(bi&&S.tool!=="crop"){S.sel=+bi.dataset.i;const b=S.boxes[S.sel];drag={k:e.target.classList.contains("h")?"rs":"mv",p,o:{...b}};drawOv();return}
+    if(S.tool==="blur"){S.boxes.push({x0:p.x,y0:p.y,x1:p.x,y1:p.y,strength:20});S.sel=S.boxes.length-1;drag={k:"new",p}}
+    else if(S.tool==="crop"){S.crop={x0:p.x,y0:p.y,x1:p.x,y1:p.y};drag={k:"crop",p}}else{S.sel=-1;drawOv()}};
+  ov.onpointermove=e=>{if(!drag)return;const p=pt(e);
+    if(drag.k==="capsz"){const c=prefs.cap;c.width_pct=Math.round(Math.min(1,Math.max(.3,drag.w0+2*(p.x-drag.p.x)))*100)/100;
+      c.size=Math.round(Math.min(140,Math.max(24,drag.s0*(1+3*(p.y-drag.p.y)))));save();drawOv();return}
+    if(drag.k==="cap"){prefs.cap.position="custom";prefs.cap.pos_pct=Math.min(.97,Math.max(.08,p.y+.02));save();drawOv();return}
+    if(drag.k==="new"||drag.k==="crop"){const t=drag.k==="new"?S.boxes[S.sel]:S.crop;Object.assign(t,{x0:Math.min(drag.p.x,p.x),y0:Math.min(drag.p.y,p.y),x1:Math.max(drag.p.x,p.x),y1:Math.max(drag.p.y,p.y)})}
+    else{const b=S.boxes[S.sel],o=drag.o,dx=p.x-drag.p.x,dy=p.y-drag.p.y;
+      if(drag.k==="mv"){const w=o.x1-o.x0,h=o.y1-o.y0;b.x0=Math.min(1-w,Math.max(0,o.x0+dx));b.y0=Math.min(1-h,Math.max(0,o.y0+dy));b.x1=b.x0+w;b.y1=b.y0+h}
+      else{b.x1=Math.min(1,Math.max(o.x0+.02,o.x1+dx));b.y1=Math.min(1,Math.max(o.y0+.02,o.y1+dy))}}
+    drawOv()};
+  ov.onpointerup=()=>{if(drag&&drag.k==="new"){const b=S.boxes[S.sel];if(b.x1-b.x0<.015||b.y1-b.y0<.015){S.boxes.pop();S.sel=-1}}
+    if(drag&&drag.k==="crop"&&S.crop&&(S.crop.x1-S.crop.x0<.05||S.crop.y1-S.crop.y0<.05))S.crop=null;
+    const was=drag;drag=null;if(was){drawOv();if(was.k!=="cap"||S.tab==="captions")panel()}};
+  ov.onwheel=e=>{if(!e.target.closest("#capb"))return;e.preventDefault();const c=prefs.cap;c.size=Math.min(140,Math.max(24,c.size+(e.deltaY<0?2:-2)));save();drawOv();if(S.tab==="captions")panel()}}
+// ------------------------------------------------------------ side panel
+const sw=(id,on,title,sub="")=>`<div class="row"><div><b style="font-weight:600">${title}</b>${sub?`<small>${sub}</small>`:""}</div><label class="sw"><input type="checkbox" id="${id}" ${on?"checked":""}><i></i></label></div>`;
+const sl=(id,min,max,step,val,suf="")=>`<div class="sl"><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><span class="v" id="${id}V">${val}${suf}</span></div>`;
+const seg=(id,opts,val)=>`<div class="seg" id="${id}">${opts.map(([v,l])=>`<button data-v="${v}" class="${String(val)===String(v)?"on":""}">${l}</button>`).join("")}</div>`;
+function bindSeg(id,fn){$$(`#${id} button`).forEach(b=>b.onclick=()=>{$$(`#${id} button`).forEach(x=>x.classList.toggle("on",x===b));fn(b.dataset.v)})}
+function bindSw(id,fn){const e=$("#"+id);if(e)e.onchange=()=>fn(e.checked)}
+function bindSl(id,fn,suf=""){const e=$("#"+id);if(e)e.oninput=()=>{$("#"+id+"V").textContent=e.value+suf;fn(+e.value)}}
+function panel(){const b=$("#pbody");if(!b)return;const c=prefs.cap,up=()=>{save();drawOv()};
+ if(S.tab==="video"){b.innerHTML=`<div class="lbl">Mode</div><div class="modes" id="modes">
+   ${[["recap","AI Recap","ဇာတ်လမ်းအကျဉ်း"],["pro","Pro Dub","မြန်မာလို ပြန်ပြော"],["subtitle","Subtitle","စာတန်းပဲ ထိုး"]].map(([v,t,s])=>`<div class="mode ${prefs.mode===v?"on":""}" data-v="${v}"><b>${t}</b><span>${s}</span></div>`).join("")}</div>
+   <div class="note" style="background:var(--acc2);color:var(--fg);border-color:var(--line);margin-top:8px">${{
+    recap:"<b>AI Recap</b> — ဗီဒီယိုတစ်ခုလုံးကို AI က ကြည့်ပြီး ဇာတ်လမ်းအကျဉ်း script ရေးပါတယ်။ အရေးကြီးတဲ့ scene တွေကိုပဲ ရွေးဖြတ်ပြီး မြန်မာ narrator အသံ + စာတန်းနဲ့ ထုတ်ပါတယ်။ ဗီဒီယို အရှည်ကို အောက်က slider နဲ့ သတ်မှတ်ပါ။",
+    pro:"<b>Pro Dub</b> — ဇာတ်ကောင်တွေ ပြောတဲ့ စကားတစ်ကြောင်းချင်းကို မြန်မာလို ဘာသာပြန်ပြီး မူရင်းအချိန်အတိုင်း မြန်မာအသံ ပြန်ထည့်ပါတယ်။ ဗီဒီယို မဖြတ်ပါ (“အသံမရှိတဲ့ အပိုင်း ဖြတ်” ဖွင့်ရင် စကားမပြောတဲ့ အပိုင်းတွေ ဖြတ်ပါတယ်)။",
+    subtitle:"<b>Subtitle</b> — မူရင်း တရုတ်အသံကို မပြောင်းဘဲ ထားပြီး မြန်မာ စာတန်းပဲ ထိုးပါတယ်။ အသံ မထုတ်လို့ အမြန်ဆုံးပါ။"}[prefs.mode]}</div>
+   ${prefs.mode==="recap"?`<div class="lbl">Recap အရှည်</div>${seg("tlen",[["60","Short ~1m"],["180","Medium ~3m"],["300","Long ~5m"],["auto","Auto"]],prefs.tlen||"180")}${prefs.tlen==="auto"?`<p class="mut">မူရင်းရဲ့ 35% လောက် (၁–၁၀ မိနစ်ကြား)</p>`:sl("tgt",30,600,10,prefs.target,"s")}`:""}
+   ${prefs.mode!=="subtitle"?`<div class="lbl">မူရင်း ဗီဒီယိုရဲ့ အသံကို ဘာလုပ်မလဲ</div>${[
+    ["remove_vocals","တရုတ်ပြောသံ ဖယ်၊ နောက်ခံတေး ထား","AI နဲ့ ပြောသံကို ခွဲထုတ်ပြီး ဂီတ / အသံ effect ပဲ ချန်ပါတယ် (အသဘာဝ အကျဆုံး)"],
+    ["mute_all","မူရင်းအသံ လုံးဝ ဖြုတ်","မြန်မာ အသံ တစ်ခုတည်းပဲ ကြားရပါမယ်"],
+    ["keep_all","မူရင်းအသံ အကုန်ထား","တရုတ်ပြောသံပါ ကျန်ပါမယ် (မြန်မာအသံ ပြောချိန်မှာ တိုးသွားပါတယ်)"]].map(([v,t,s])=>`<label class="row" style="cursor:pointer;justify-content:flex-start"><input type="radio" name="aud" value="${v}" ${prefs.audio===v?"checked":""}><div><b style="font-weight:600">${t}</b><small>${s}</small></div></label>`).join("")}`:`<p class="mut">Subtitle mode မှာ မူရင်းအသံ အကုန် ထားပါတယ်။</p>`}
+   ${prefs.mode!=="recap"?sw("tight",prefs.tight,"အသံမရှိတဲ့ အပိုင်း ဖြတ်","စကားပြောကြား ငြိမ်နေတာတွေ ဖြတ်ပြီး တိုစေ"):""}
+   <div class="lbl">Ratio</div>${seg("asp",[["original","Original"],["9:16","9:16"],["1:1","1:1"],["4:5","4:5"],["16:9","16:9"]],prefs.aspect)}
+   <div class="lbl">How the video fits</div>${seg("fit",[["center_crop","Crop (fill)"],["blur_fill","Pad (blur bg)"],["smart","Smart (မျက်နှာ)"]],prefs.fit)}
+   <p class="mut">⌗ Crop tool နဲ့ ထားချင်တဲ့ အပိုင်းကို ဗီဒီယိုပေါ် ဆွဲပါ${S.crop?` · <a href="#" id="clrCrop">crop ဖျက်</a>`:""}</p>
+   ${sw("hd",prefs.hd,"HD (1080p)","ကြည်လင် · ပိတ်ရင် preview မြန်မြန်")}${sw("mir",prefs.mirror,"Mirror (ဘယ်ညာ လှန်)")}
+   <div class="lbl">Zoom</div>${sl("zm",100,130,1,Math.round(prefs.zoom*100),"%")}
+   ${sw("tfOn",prefs.tf,"Advanced Transformation","အရောင်၊ stabilize၊ chapters၊ Rights စစ်")}
+   ${prefs.tf?`<select class="in" id="tfp" style="margin-top:6px">${[["custom","Custom"],["clean_drama","Clean Drama"],["cinematic_drama","Cinematic Drama"],["vertical_recap","Vertical Recap"],["subtitle_focus","Subtitle Focus"]].map(([v,l])=>`<option value="${v}" ${prefs.tfPreset===v?"selected":""}>${l}</option>`).join("")}</select>`:""}
+   ${S.engine==="cloud"?`<div class="lbl">AI Models</div><p class="mut">☁ Cloud mode ဖွင့်ထားပါတယ် — Settings → Cloud / API Key မှာ ပြောင်းပါ</p>`:""}<div class="${S.engine==="cloud"?"hide":""}"><div class="lbl">AI Models</div><select class="in" id="llm">${[["gemma4:26b","Script: အကောင်းဆုံး (gemma4 26b)"],["gemma4:12b","Script: အလယ်အလတ် (12b)"],["gemma4:e4b","Script: အမြန် (e4b)"]].map(([v,l])=>`<option value="${v}" ${prefs.llm===v?"selected":""}>${l}</option>`).join("")}</select>
+   <select class="in" id="asr" style="margin-top:6px">${[["large-v3-turbo","နားထောင်: Whisper turbo (အကောင်းဆုံး)"],["large-v3","နားထောင်: Whisper large-v3 (နှေး)"],["belle-zh","နားထောင်: Belle 中文 (စမ်းသပ်)"]].map(([v,l])=>`<option value="${v}" ${prefs.asr===v?"selected":""}>${l}</option>`).join("")}</select></div>`;
+  $$("#modes .mode").forEach(m=>m.onclick=()=>{prefs.mode=m.dataset.v;up();panel()});bindSl("tgt",v=>{prefs.target=v;up()},"s");bindSeg("tlen",v=>{prefs.tlen=v;if(v!=="auto")prefs.target=+v;up();panel()});$$("input[name=aud]").forEach(r=>r.onchange=()=>{prefs.audio=r.value;up()});
+  bindSeg("asp",v=>{prefs.aspect=v;up()});bindSw("tight",v=>{prefs.tight=v;up()});bindSeg("fit",v=>{prefs.fit=v;up()});bindSw("hd",v=>{prefs.hd=v;up()});bindSw("mir",v=>{prefs.mirror=v;up()});
+  bindSl("zm",v=>{prefs.zoom=v/100;up()},"%");bindSw("tfOn",v=>{prefs.tf=v;up();panel()});const tp=$("#tfp");if(tp)tp.onchange=()=>{prefs.tfPreset=tp.value;up()};
+  $("#llm").onchange=e=>{prefs.llm=e.target.value;up()};$("#asr").onchange=e=>{prefs.asr=e.target.value;up()};const cc=$("#clrCrop");if(cc)cc.onclick=e=>{e.preventDefault();S.crop=null;drawOv();panel()}}
+ else if(S.tab==="voice"){b.innerHTML=`<div class="lbl">Voice <span class="mut">· ${VOICES.length} မြန်မာ voices</span></div>${VOICES.map(v=>`<div class="voice ${prefs.voice===v.id?"on":""}" data-v="${v.id}"><span class="av">${v.n[0]}</span><div><b>${v.n}</b><div class="mut">${v.g} · ${v.id.startsWith("edge_")?"online, အသံ သဘာဝအကျဆုံး":"local, offline"}</div></div><button class="pl" data-p="${v.id}">▶</button></div>`).join("")}
+   <div class="lbl">Speed</div>${sl("spd",-40,60,5,Math.round((prefs.speed-1)*100),"%")}<p class="mut">${prefs.mode==="subtitle"?"Subtitle mode မှာ အသံ မထုတ်ပါ။":"Pro mode မှာ နေရာမဆံ့ရင် အလိုလို အမြန်နှုန်း ညှိပါတယ်။"}</p>`;
+  $$(".voice").forEach(x=>x.onclick=e=>{if(e.target.closest(".pl"))return;prefs.voice=x.dataset.v;up();panel()});
+  $$(".pl").forEach(p=>p.onclick=()=>{p.textContent="…";const a=new Audio(`/api/voices/${p.dataset.p}/preview?speed=${prefs.speed}`);a.onplaying=()=>p.textContent="■";a.onended=a.onerror=()=>p.textContent="▶";a.play()});
+  bindSl("spd",v=>{prefs.speed=1+v/100;up()},"%")}
+ else if(S.tab==="captions"){const cols=["#FFFFFF","#FFD400","#7FDBFF","#FF8FB1","#8BE38B","#FF9F43"];
+  b.innerHTML=`<div class="row"><div><b>${S.boxes.length} blur box</b><small>ဗီဒီယိုပေါ် ဆွဲပါ၊ ဆွဲရွှေ့ပါ</small></div><button class="btn ghost" id="addB">＋ Add</button></div>
+   ${sw("hs",prefs.hardsub,"မူရင်း စာတန်း အလိုလို ဖုံး","OCR နဲ့ ရှာပြီး blur လုပ်ပါတယ်")}${sw("burn",c.burn,"Captions (မြန်မာစာ ထိုး)")}
+   <div class="lbl">Font</div><select class="in" id="font">${["Noto Sans Myanmar","Padauk"].map(f=>`<option ${c.font===f?"selected":""}>${f}</option>`).join("")}</select>
+   <div class="lbl">Text size</div>${sl("csz",30,120,2,c.size,"px")}
+   <div class="lbl">Text colour</div><div class="colors">${cols.map(x=>`<i data-c="${x}" class="${c.color===x?"on":""}" style="background:${x}"></i>`).join("")}<input type="color" id="ccol" value="${c.color.slice(0,7)}" style="width:32px;height:30px;border:0;background:none"></div>
+   <div class="row"><b>Outline colour</b><input type="color" id="ocol" value="${c.outline_color.slice(0,7)}"></div>
+   <div class="lbl">Outline width</div>${sl("ow",0,10,.5,c.outline,"px")}${sw("bold",c.bold,"Bold")}${sw("box",c.box,"Box (နောက်ခံ)")}
+   <div class="lbl">Position <span class="mut">· ဗီဒီယိုပေါ်က စာတန်းကို ဆွဲရွှေ့လို့လည်း ရ</span></div>${seg("pos",[["bottom","Bottom"],["middle","Middle"],["top","Top"],["custom","Custom"]],c.position)}
+   ${c.position==="custom"?`<div class="lbl">Vertical position</div>${sl("vp",8,97,1,Math.round(c.pos_pct*100),"%")}`:""}
+   <div class="lbl">စာလုံးရေ / လိုင်း</div>${sl("mcl",12,40,1,c.max_chars_per_line)}<p class="warn" style="font-size:12px">ဗီဒီယို မထုတ်ခင် သတ်မှတ်ပါ</p>
+   <div class="lbl">Caption width</div>${sl("cw",40,100,1,Math.round(c.width_pct*100),"%")}`;
+  const u2=()=>{save();drawOv()};$("#addB").onclick=()=>{S.boxes.push({x0:.3,y0:.78,x1:.7,y1:.9,strength:20});S.sel=S.boxes.length-1;S.tool="edit";stage();panel()};
+  bindSw("hs",v=>{prefs.hardsub=v;u2()});bindSw("burn",v=>{c.burn=v;u2()});$("#font").onchange=e=>{c.font=e.target.value;u2()};bindSl("csz",v=>{c.size=v;u2()},"px");
+  $$(".colors i").forEach(i=>i.onclick=()=>{c.color=i.dataset.c;u2();panel()});$("#ccol").oninput=e=>{c.color=e.target.value.toUpperCase();u2()};$("#ocol").oninput=e=>{c.outline_color=e.target.value.toUpperCase();u2()};
+  bindSl("ow",v=>{c.outline=v;u2()},"px");bindSw("bold",v=>{c.bold=v;u2()});bindSw("box",v=>{c.box=v;u2()});bindSeg("pos",v=>{c.position=v;u2();panel()});
+  bindSl("vp",v=>{c.pos_pct=v/100;u2()},"%");bindSl("mcl",v=>{c.max_chars_per_line=v;u2()});bindSl("cw",v=>{c.width_pct=v/100;u2()},"%")}
+ else{b.innerHTML=`${sw("wmOn",prefs.wmOn,"Watermark text","ကိုယ်ပိုင် channel နာမည်")}${prefs.wmOn?`<input class="in" id="wmT" value="${esc(prefs.wmText)}" placeholder="My Channel" style="margin-top:6px">`:""}
+   ${sw("lgOn",prefs.logoOn,"Logo","PNG / JPG (ကိုယ်ပိုင် logo ပဲ)")}${prefs.logoOn?`<div style="display:flex;gap:10px;align-items:center;margin-top:6px">${prefs.logo?`<img src="${prefs.logo.url}" style="width:44px;height:44px;border-radius:50%;object-fit:cover">`:""}<button class="btn ghost" id="lgUp">Upload logo</button><input type="file" id="lgF" accept="image/*" class="hide"></div>`:""}
+   ${prefs.wmOn?`<div class="lbl">Watermark လှုပ်ရှားပုံ</div>${seg("wmm",[["fixed","တစ်နေရာတည်း"],["fade","မှိန်/လင်း"],["move","နေရာပြောင်း ရွေ့"]],prefs.wmMotion||"fixed")}`:""}
+   <div class="lbl">ဘေးဘောင် (frame border)</div>${seg("bdr",[["none","မထည့်"],["line","မျဉ်း"],["glow","အလင်း"],["line_glow","မျဉ်း + အလင်း"]],prefs.border||"none")}
+   ${(prefs.border||"none")!=="none"?`<div class="colors" style="margin-top:8px"><span class="mut">မျဉ်း</span><input type="color" id="bcol" value="${prefs.borderColor||"#FFFFFF"}"><span class="mut">ဘယ်</span><input type="color" id="gl0" value="${(prefs.glow||["#FF3B5C","#3B7BFF"])[0]}"><span class="mut">ညာ</span><input type="color" id="gl1" value="${(prefs.glow||["#FF3B5C","#3B7BFF"])[1]}"></div>`:""}
+   ${prefs.wmOn||prefs.logoOn?`<div class="lbl">နေရာ</div>${seg("wmp",[["top_left","↖"],["top_right","↗"],["bottom_left","↙"],["bottom_right","↘"],["center","●"]],prefs.wmPos)}`:""}
+   ${sw("pk",prefs.postKit,"AI caption + hashtags","TikTok caption · hashtags · thumbnail")}<textarea class="in" id="tags" rows="2" style="margin-top:6px" placeholder="#shortdramareview #myanmartiktok">${esc(prefs.hashtags)}</textarea>${sw("fyp",prefs.fyp,"Add #fyp")}
+   <div class="lbl">Rights / မူပိုင်ခွင့်</div><select class="in" id="rs">${[["permission_unknown","ခွင့်ပြုချက် မသိရ"],["user_owned","ကိုယ်ပိုင်"],["licensed","လိုင်စင်ရှိ"]].map(([v,l])=>`<option value="${v}" ${prefs.rights===v?"selected":""}>${l}</option>`).join("")}</select>
+   <input class="in" id="own" style="margin-top:6px" placeholder="မူရင်း ပိုင်ရှင် / credit" value="${esc(prefs.owner)}"><p class="mut">ပြင်ဆင်ထားတာက copyright ကို မဖယ်ရှားပါ။ ခွင့်ပြုချက်ရှိမှ တင်ပါ။</p>`;
+  bindSw("wmOn",v=>{prefs.wmOn=v;save();panel();bar()});bindSw("lgOn",v=>{prefs.logoOn=v;save();panel();bar()});const wt=$("#wmT");if(wt)wt.oninput=()=>{prefs.wmText=wt.value;save()};
+  const lu=$("#lgUp");if(lu){lu.onclick=()=>$("#lgF").click();$("#lgF").onchange=async e=>{const fd=new FormData();fd.append("file",e.target.files[0]);prefs.logo=await api("/api/assets",{method:"POST",body:fd});save();panel()}}
+  bindSeg("wmp",v=>{prefs.wmPos=v;save()});bindSeg("wmm",v=>{prefs.wmMotion=v;save()});bindSeg("bdr",v=>{prefs.border=v;save();panel();drawOv()});
+  const bc=$("#bcol");if(bc){bc.oninput=e=>{prefs.borderColor=e.target.value;save();drawOv()};const g=()=>{prefs.glow=[$("#gl0").value,$("#gl1").value];save();drawOv()};$("#gl0").oninput=g;$("#gl1").oninput=g}bindSw("pk",v=>{prefs.postKit=v;save()});$("#tags").oninput=e=>{prefs.hashtags=e.target.value;save()};bindSw("fyp",v=>{prefs.fyp=v;save()});
+  $("#rs").onchange=e=>{prefs.rights=e.target.value;save()};$("#own").oninput=e=>{prefs.owner=e.target.value;save()}}}
+function bar(){const b=$("#sbar");if(!b)return;const has=S.src;
+ b.innerHTML=`<b>${has?(S.file?"ဖိုင် အသင့်":"URL အသင့်"):"ဗီဒီယို မရွေးရသေး"}</b><span class="chip">${{recap:"AI Recap",pro:"Pro Dub",subtitle:"Subtitle"}[prefs.mode]}</span><span class="chip">${prefs.aspect}</span><span class="chip">Blur ${S.boxes.length}</span>
+  <span class="chip">${prefs.cap.burn?"Captions on":"Captions off"}</span>${S.crop?`<span class="chip">Crop</span>`:""}${prefs.tf?`<span class="chip">Transform</span>`:""}<span style="flex:1"></span>
+  <span id="startMsg" class="mut"></span><button class="btn" id="go" ${has?"":"disabled"}>▶ Start</button>`;$("#go").onclick=start}
+function buildSettings(){const p=prefs,wm=(p.wmOn&&p.wmText)||(p.logoOn&&p.logo);const tfOn=p.tf||!!wm||p.fit==="smart"||p.aspect==="original"||(p.border||"none")!=="none";
+ return{mode:p.mode,aspect:p.aspect==="original"?"9:16":p.aspect,reframe:p.fit==="center_crop"?"center_crop":"blur_fill",proxy:!p.hd,mirror:p.mirror,zoom:p.zoom,
+  target_seconds:p.tlen==="auto"?Math.min(600,Math.max(60,Math.round((S.dur||600)*.35))):p.target,original_audio:p.mode==="subtitle"?"keep_all":p.audio,voice_id:p.voice,voice_speed:Math.round(p.speed*100)/100,llm_model:p.llm,whisper_model:p.asr,
+  hardsub:p.hardsub?"blur":"keep",caption:{...p.cap},blur_boxes:S.boxes.map(b=>({...b})),crop_box:S.crop,post_kit:p.postKit,tighten_gaps:!!p.tight,hashtags:p.hashtags,add_fyp:p.fyp,
+  transform:{enabled:tfOn,preset:p.tf?p.tfPreset:"custom",smart_reframe:p.fit==="smart",aspect_original:p.aspect==="original",subtitle_blur:p.hardsub,
+   watermark:!!wm,wm:{text:p.wmOn?p.wmText:"",logo_path:p.logoOn&&p.logo?p.logo.path:null,position:p.wmPos,motion:p.wmMotion||"fixed",opacity:p.wmMotion==="move"?.45:.8},
+   border:p.border||"none",border_color:p.borderColor||"#FFFFFF",glow_colors:p.glow||["#FF3B5C","#3B7BFF"]},
+  rights:{status:p.rights,owner:p.owner,attribution:p.owner,source_url:S.url}}}
+async function start(){const fd=new FormData();fd.append("settings",JSON.stringify(buildSettings()));fd.append("url",S.url);fd.append("title",S.file?S.file.name.replace(/\.[^.]+$/,""):"");
+ if(S.file)fd.append("file",S.file);$("#go").disabled=true;$("#startMsg").textContent=S.file?"ဖိုင် ပို့နေပါတယ်…":"ပြင်ဆင်နေပါတယ်…";
+ try{const r=await api("/api/projects",{method:"POST",body:fd});location.hash="#/project/"+r.project_id}catch(e){$("#startMsg").innerHTML=`<span class="err">${esc(e.message)}</span>`;$("#go").disabled=false}}
+// ------------------------------------------------------------ PROJECT (progress + result)
+let lastState={};
+async function Project(pid){S.pid=pid;lastState[pid]="";$("#view").innerHTML=`<div class="top"><h1>Studio</h1><span class="sub" id="ptitle"></span><span style="flex:1"></span><a class="btn ghost" href="#/studio">＋ New video</a></div><div id="pv"></div>`;await refreshP(true);S.timer=setInterval(()=>refreshP(false),2000)}
+async function refreshP(first){const pid=S.pid;let d;try{d=await api(`/api/projects/${pid}`)}catch(e){$("#pv").innerHTML=`<p class="err" style="padding:22px">${esc(e.message)}</p>`;return}
+ if(!$("#ptitle"))return;$("#ptitle").textContent=d.title||pid;const j=d.job,running=j&&(j.state==="queued"||j.state==="running");
+ const noVid=!d.files.includes("export/final.mp4")&&!d.files.includes("export/preview.mp4");
+ if(running||(noVid&&d.status!=="done")){renderProgress(d);return}
+ if(!first&&lastState[pid]==="result")return;lastState[pid]="result";renderResult(d);
+ if(j&&j.finished_at&&!LS.get("notified_"+pid,false)){LS.set("notified_"+pid,true);if(prefs.notify&&"Notification" in window&&Notification.permission==="granted")new Notification("ဗီဒီယို ပြီးပါပြီ",{body:d.title||pid});
+  if(prefs.autoDl){const a=document.createElement("a");a.href=`/api/projects/${pid}/file/export/final.mp4`;a.download=(d.title||pid)+".mp4";a.click()}}}
+function renderProgress(d){lastState[d.project_id]="progress";const j=d.job||{},st=d.stages||{};const order=d.stage_order.filter(s=>!(s.name==="rights"&&!d.settings.transform.enabled)&&!(s.name==="voice"&&d.settings.mode==="subtitle")&&!(s.name==="separate"&&d.settings.original_audio!=="remove_vocals"));
+ const done=order.filter(s=>(st[s.name]||{}).status==="done").length,cur=order.find(s=>(st[s.name]||{}).status==="running"),failed=order.find(s=>(st[s.name]||{}).status==="failed");
+ const pct=Math.round(100*(done+(cur?(j.progress||0):0))/order.length);const el=j.started_at?Math.round((j.finished_at||Date.now()/1000)-j.started_at):0;
+ const title=cur?STEP_MY[cur.name]||cur.name:j.state==="queued"?"တန်းစီနေပါတယ်":failed||j.state==="failed"?"မအောင်မြင်ပါ":"ရပ်ထားပါတယ်";
+ $("#pv").innerHTML=`<div class="prog"><div class="card"><div style="display:flex;align-items:center;gap:12px"><div style="flex:1"><b style="font-size:17px">${esc(title)}</b>
+  <div class="mut">${esc(j.message||"")} ${j.worker?"· worker "+j.worker:""}</div></div><b style="font-size:30px;color:var(--acc)">${pct}%</b></div>
+  <div class="pbar"><b style="width:${pct}%"></b></div><div class="mut">ကြာချိန် ${fmt(el)}</div>
+  <div class="steps" style="margin-top:12px">${order.map(s=>{const x=(st[s.name]||{}).status||"";return `<div class="s ${x==="running"?"run":x}"><i>${x==="done"?"✓":x==="failed"?"!":""}</i>${STEP_MY[s.name]||s.name}${(st[s.name]||{}).seconds&&x==="done"?`<span class="mut" style="margin-left:auto">${Math.round(st[s.name].seconds)}s</span>`:""}</div>`}).join("")}</div>
+  ${j.error?`<p class="err">${esc(j.error.message)}</p>`:""}${!j.state||j.state==="failed"||j.state==="cancelled"?`<button class="btn" onclick="rerun([])">↻ Retry / ဆက်လုပ်</button>`:""}</div>
+  <div class="note">⚠ ဒီကွန်ပျူတာပေါ်မှာပဲ လုပ်နေတာပါ — ဗီဒီယို ဘယ်မှ upload မလုပ်ပါ။ Window ပိတ်လည်း server က ဆက်လုပ်ပါတယ်။</div>
+  <details id="logd" ${S.logOpen?"open":""}><summary>Details (log)</summary><pre id="logp">…</pre></details>
+  ${j.state==="running"||j.state==="queued"?`<button class="btn red" style="width:100%;margin-top:12px" onclick="cancelJob()">Cancel</button>`:""}</div>`;
+ $("#logd").ontoggle=e=>{S.logOpen=e.target.open;if(S.logOpen)loadLog()};if(S.logOpen)loadLog()}
+async function loadLog(){try{const t=await api(`/api/projects/${S.pid}/log?lines=60`);if($("#logp"))$("#logp").textContent=t}catch(e){}}
+function renderResult(d){const has=r=>d.files.includes(r),v=has("export/final.mp4")?"export/final.mp4":has("export/preview.mp4")?"export/preview.mp4":null,F=r=>`/api/projects/${d.project_id}/file/${r}`;
+ const q=d.qc,pk=d.post_kit,rr=d.rights;
+ $("#pv").innerHTML=`<div class="res"><div class="card" style="padding:14px">${v?`<video controls src="${F(v)}?v=${d.stages.render?.finished||0}"></video>`:`<p class="mut">ဗီဒီယို မရှိပါ</p>`}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${v?`<a class="btn" href="${F(v)}" download="${esc(d.title||d.project_id)}.mp4">⤓ MP4</a>`:""}${has("export/final.srt")?`<a class="btn ghost" href="${F("export/final.srt")}" download>⤓ SRT</a>`:""}
+  ${has("export/thumbnail_3x4.png")?`<a class="btn ghost" href="${F("export/thumbnail_3x4.png")}" download>⤓ Thumbnail</a>`:""}<button class="btn line" onclick="api('/api/projects/${d.project_id}/open',{method:'POST'})">📂 Folder</button>
+  <button class="btn line" onclick="rerun(['render'])">↻ ပြန် Render</button><a class="btn line" href="#/finder/${d.project_id}">🔎 Source ရှာ</a></div>
+  ${has("export/compare.png")?`<div class="lbl">မူရင်း / ပြင်ပြီး</div><img src="${F("export/compare.png")}" style="width:100%;border-radius:10px">`:""}
+  <div class="lbl">Script ပြင်ရန် <span class="mut">(သိမ်းရင် အဲ့အပိုင်းပဲ ပြန်လုပ်)</span></div>${(d.beats||[]).map(x=>`<div class="beat"><div class="mut">#${x.id} · ${(+x.out_start||0).toFixed(1)}s ${x.chinese?"· "+esc(x.chinese):""}</div><textarea id="bt${x.id}">${esc(x.narration||x.burmese||"")}</textarea><button class="btn ghost" style="padding:4px 12px" onclick="saveBeat(${x.id})">သိမ်း</button></div>`).join("")}</div>
+  <div style="display:flex;flex-direction:column;gap:14px">${pk?`<div class="card" style="padding:14px"><b>Post Kit</b><p style="margin:8px 0"><b>${esc(pk.title)}</b></p><p style="margin:0 0 8px">${esc(pk.caption)}</p><p class="mut">${esc((pk.hashtags||[]).join(" "))}</p>
+   <button class="btn ghost" id="cpk">Copy</button></div>`:""}
+  ${q?`<div class="card" style="padding:14px"><b class="${q.passed?"ok":"warn"}">${q.passed?"✓ QC pass":"⚠ QC သတိပေးချက်"}</b>${(q.warnings_my||[]).map(w=>`<p class="warn" style="margin:6px 0">• ${esc(w)}</p>`).join("")}
+   <p class="mut">${q.duration_s}s · ${q.lufs} LUFS · ${(q.resolution||[]).join("×")} · ${q.video_codec} · စာတန်း ${q.srt?.cues}</p></div>`:""}
+  ${rr?`<div class="card" style="padding:14px"><b>Rights: ${esc(rr.status_my)}</b>${rr.flags_my.map(x=>`<p class="warn" style="margin:6px 0;font-size:12px">• ${esc(x)}</p>`).join("")}<p class="mut">${esc(rr.disclaimer_my)}</p></div>`:""}
+  <div class="card" style="padding:14px"><b>Settings</b><p class="mut">${esc(d.settings.mode)} · ${esc(d.settings.llm_model)} · ${esc(d.settings.whisper_model)} · voice ${esc(d.settings.voice_id)} · blur ${d.settings.blur_boxes.length}</p></div></div></div>`;
+ const cp=$("#cpk");if(cp)cp.onclick=()=>{navigator.clipboard.writeText(pk.caption+"\n\n"+(pk.hashtags||[]).join(" "));toast("Copy ပြီးပါပြီ")}}
+async function rerun(force){await api(`/api/projects/${S.pid}/run`,J("POST",{force}));lastState[S.pid]="";refreshP(true)}
+async function cancelJob(){await api(`/api/projects/${S.pid}/cancel`,{method:"POST"});refreshP(true)}
+async function saveBeat(id){await api(`/api/projects/${S.pid}/beats/${id}`,J("PATCH",{narration:$("#bt"+id).value}));toast("သိမ်းပြီး ပြန်လုပ်နေပါတယ်");lastState[S.pid]="";refreshP(true)}
+
+// ------------------------------------------------------------ ONE CLICK HOME
+function Home(){$("#view").innerHTML=`<div class="top"><h1>One Click AI</h1><span class="sub">နှိပ်ရုံနဲ့ — ဒီကွန်ပျူတာထဲမှာပဲ</span></div>
+ <div class="lib" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">${[
+  ["🎬","One Click Recap","ဗီဒီယို တင်ရုံနဲ့ မြန်မာ recap (အသံ + စာတန်း) ထုတ်ပေးပါတယ်","Recap ထုတ်မယ်","recap"],
+  ["🗣️","One Click Dub","ဇာတ်ကောင် စကားကို မြန်မာလို ပြန်ပြော (Pro Dub)","Dub လုပ်မယ်","pro"],
+  ["💬","One Click Subtitle","မူရင်းအသံ ထားပြီး မြန်မာ စာတန်း ထိုး","စာတန်း ထိုးမယ်","subtitle"],
+  ["🎙️","Voiceover Generator","Script ထည့်ရင် မြန်မာ အသံ + SRT","Voiceover ထုတ်မယ်","#/voiceover"],
+  ["🔎","Source Finder","Clip ရဲ့ မူရင်း ဇာတ်ကား/channel ကို ရှာ (credit ပေးဖို့ / အကြည်ရဖို့)","ရှာမယ်","#/finder"],
+  ["⤓","Video Downloader","YouTube / Bilibili / Douyin link ကနေ ဒေါင်း","ဒေါင်းမယ်","#/finder/dl"]].map(([i,t,d,b,go])=>
+  `<div class="card" style="padding:18px;display:flex;flex-direction:column;gap:8px"><div style="font-size:26px">${i}</div><b style="font-size:16px">${t}</b><span class="tag ok" style="align-self:flex-start;margin:0">● Available</span>
+   <p class="mut" style="flex:1;margin:0">${d}</p><button class="btn" data-go="${go}">${b} →</button></div>`).join("")}</div>
+ <div class="card" style="margin:0 22px 22px;padding:18px"><b>💡 Result ကောင်းဖို့ source ဘယ်လို ရွေးမလဲ</b>
+  <p class="mut" style="font-size:13px;line-height:1.8">✓ ဇာတ်လမ်း flow ရှင်းတဲ့ drama / movie၊ scene တွေ အစီအစဉ်အတိုင်း ဆက်သွားတာ၊ စကားပြော (သို့) narration ပါတာ၊ 720p နဲ့အထက် ကြည်တာ<br>
+  ✕ Random clip / AI ကျပန်း video၊ music edit / funny clip၊ ဘောလုံး highlight၊ behind-the-scenes compilation — ဒါတွေက script မမှန်တာ၊ fail ဖြစ်တာ များပါတယ်<br>
+  👉 Popular ဖြစ်တာနဲ့ ကောင်းမယ်လို့ မယူဆပါနဲ့ — upload မတင်ခင် ကိုယ်တိုင် ကြည့်ပါ။ ကိုယ်သုံးခွင့်ရှိတဲ့ source ကိုပဲ သုံးပါ (မသေချာရင် 🔎 Source Finder နဲ့ မူရင်းရှာပြီး credit ပေးပါ)။</p></div>`;
+ $$("[data-go]").forEach(b=>b.onclick=()=>{const g=b.dataset.go;if(g.startsWith("#"))location.hash=g;else{prefs.mode=g;save();S.tab="video";location.hash="#/studio"}})}
+// ------------------------------------------------------------ SOURCE FINDER + DOWNLOADER
+async function Finder(arg){const l=await api("/api/projects").catch(()=>[]);const dl=arg==="dl";
+ $("#view").innerHTML=`<div class="top"><h1>${dl?"Video Downloader":"Source Finder"}</h1><span class="sub">${dl?"Link ကနေ MP4 ဒေါင်း (1080p အထိ)":"Clip ရဲ့ မူရင်းကို YouTube / Bilibili မှာ ရှာပေးပါတယ်"}</span></div>
+ <div style="padding:0 22px 22px;max-width:1100px">
+ <div class="card" style="padding:16px;${dl?"display:none":""}"><div class="lbl" style="margin-top:0">Project ကနေ ရှာ (title + စကားပြောထဲက keyword ကို AI က ထုတ်ပေး)</div>
+  <div style="display:flex;gap:8px"><select class="in" id="fp"><option value="">— project ရွေးပါ —</option>${l.filter(p=>p.status==="done").map(p=>`<option value="${p.project_id}" ${p.project_id===arg?"selected":""}>${esc((p.title||p.project_id).slice(0,70))}</option>`).join("")}</select><button class="btn" id="fgo1">ရှာမယ်</button></div>
+  <div class="lbl">သို့မဟုတ် စာနဲ့ ရှာ (ဇာတ်ကား နာမည်၊ တရုတ် keyword …)</div><div style="display:flex;gap:8px"><input class="in" id="fq" placeholder="外卖大战 机甲"><button class="btn ghost" id="fgo2">ရှာမယ်</button></div>
+  <p class="mut">⏳ AI keyword ထုတ်ရင် ၁–၂ မိနစ် ကြာနိုင်ပါတယ်။ ရလဒ်တွေက အကြံပြုချက်ပဲ — ကိုယ်တိုင် ဖွင့်စစ်ပါ။</p></div>
+ <div class="card" style="padding:16px;margin-top:14px"><div class="lbl" style="margin-top:0">⤓ Video Downloader</div><div style="display:flex;gap:8px"><input class="in" id="du" placeholder="https://www.youtube.com/watch?v=…"><button class="btn ghost" id="dgo">ဒေါင်းမယ်</button></div><div id="dres" class="mut"></div>
+  <p class="mut">ကိုယ်သုံးခွင့်ရှိတဲ့ video ကိုပဲ ဒေါင်းပါ။</p></div>
+ <div id="fres" style="margin-top:14px"></div></div>`;
+ const show=r=>{$("#fres").innerHTML=`<p class="mut">ရှာခဲ့တဲ့ keyword: ${r.queries.map(esc).join(" · ")}</p><div class="lib" style="padding:0">${r.results.map(x=>`<div class="card lc"><div class="th" style="aspect-ratio:16/9;background-image:url('${esc(x.thumb)}')"></div>
+   <div class="m"><b title="${esc(x.title)}">${esc(x.title)}</b><span class="st">${x.site}</span> <span class="mut">${x.duration?fmt(x.duration):""} · ${esc(x.channel)} · match ${x.score}</span>
+   <div style="display:flex;gap:6px;margin-top:8px"><a class="btn ghost" style="padding:4px 10px" href="${esc(x.url)}" target="_blank">ဖွင့်</a><button class="btn line" style="padding:4px 10px" data-use="${esc(x.url)}">Studio မှာ သုံး</button></div></div></div>`).join("")||'<p class="mut">မတွေ့ပါ — keyword ပြောင်းရှာကြည့်ပါ</p>'}</div>`;
+  $$("[data-use]").forEach(b=>b.onclick=()=>{S.url=b.dataset.use;S.file=null;S.src="url";location.hash="#/studio"})};
+ const run=async body=>{$("#fres").innerHTML=`<p class="mut">🔎 ရှာနေပါတယ်…</p>`;try{show(await api("/api/source-finder",J("POST",body)))}catch(e){$("#fres").innerHTML=`<p class="err">${esc(e.message)}</p>`}};
+ $("#fgo1").onclick=()=>$("#fp").value&&run({project_id:$("#fp").value});$("#fgo2").onclick=()=>$("#fq").value.trim()&&run({query:$("#fq").value});
+ $("#dgo").onclick=async()=>{const u=$("#du").value.trim();if(!u)return;$("#dres").textContent="⏳ ဒေါင်းနေပါတယ်…";try{const r=await api("/api/download",J("POST",{url:u}));
+  $("#dres").innerHTML=`✓ ${esc(r.name)} (${r.mb} MB) <a class="btn" style="padding:4px 10px" href="${r.url}" download>⤓ Save</a>`}catch(e){$("#dres").innerHTML=`<span class="err">${esc(e.message)}</span>`}};
+ if(arg&&!dl&&l.some(p=>p.project_id===arg))run({project_id:arg})}
+// ------------------------------------------------------------ LIBRARY
+async function Library(){$("#view").innerHTML=`<div class="top"><h1>Library</h1><span class="sub">ဒီကွန်ပျူတာထဲက project အားလုံး</span></div><div class="lib" id="lib"></div>`;
+ const load=async()=>{const l=await api("/api/projects").catch(()=>[]);const el=$("#lib");if(!el)return;
+  el.innerHTML=l.map(p=>{const j=p.job,stt=j?j.state:p.status;return `<div class="card lc" onclick="location.hash='#/project/${p.project_id}'"><div class="th" style="background-image:url('/api/projects/${p.project_id}/file/export/thumbnail_3x4.png'),url('/api/projects/${p.project_id}/file/export/caption_frame.png')">${stt==="done"?"":"⏳"}</div>
+   <div class="m"><b>${esc(p.title||p.project_id)}</b><span class="st ${stt}">${esc({done:"ပြီး",running:"လုပ်နေ",queued:"တန်းစီ",failed:"မအောင်မြင်",pending:"မစရသေး",cancelled:"ရပ်ထား"}[stt]||stt)}</span> <span class="mut">${esc(p.mode)}</span></div></div>`}).join("")||`<p class="mut">မရှိသေးပါ</p>`};
+ await load();S.timer=setInterval(load,4000)}
+// ------------------------------------------------------------ VOICEOVER
+let voState={voice:"male_calm",tab:"voice",speed:0,pause:150,chars:32,lines:1};
+function Voiceover(){$("#view").innerHTML=`<div class="top"><h1>Voiceover</h1><span class="sub">မြန်မာ script → အသံ + SRT</span></div><div class="vo">
+ <div class="card" style="padding:14px"><div style="display:flex;gap:6px;justify-content:center;margin-bottom:10px"><button class="btn ghost" id="vPaste">Paste</button><button class="btn line" id="vClean">Clean</button><button class="btn line" id="vNew">New</button></div>
+ <textarea id="vText" maxlength="50000" placeholder="မြန်မာ script ကို ဒီမှာ ရေးပါ / paste လုပ်ပါ">${esc(LS.get("voText",""))}</textarea><div class="mut" style="text-align:center" id="vCnt"></div></div>
+ <div><div class="card tabs" id="vtabs" style="margin:0 0 12px;grid-template-columns:repeat(3,1fr)">${["voice","setting","history"].map(t=>`<button data-t="${t}" class="${voState.tab===t?"on":""}">${{voice:"Voice",setting:"Setting",history:"History"}[t]}</button>`).join("")}</div>
+ <div class="card" style="padding:14px" id="vBody"></div><button class="btn" style="width:100%;margin-top:12px;padding:13px" id="vGo">🎙️ Generate voice</button><div id="vOut" style="margin-top:12px"></div></div></div>`;
+ const t=$("#vText"),cnt=()=>{$("#vCnt").textContent=`${t.value.length} / 50,000`;LS.set("voText",t.value)};t.oninput=cnt;cnt();
+ $("#vPaste").onclick=async()=>{try{t.value+=await navigator.clipboard.readText();cnt()}catch(e){toast("Clipboard ဖတ်ခွင့် မရပါ")}};
+ $("#vClean").onclick=()=>{t.value=t.value.replace(/[ \t]+/g," ").replace(/\n{3,}/g,"\n\n").trim();cnt()};$("#vNew").onclick=()=>{t.value="";cnt();$("#vOut").innerHTML=""};
+ $$("#vtabs button").forEach(b=>b.onclick=()=>{voState.tab=b.dataset.t;$$("#vtabs button").forEach(x=>x.classList.toggle("on",x===b));vBody()});vBody();
+ $("#vGo").onclick=async()=>{if(!t.value.trim())return toast("စာသား ထည့်ပါ");$("#vGo").disabled=true;$("#vGo").textContent="အသံ ထုတ်နေပါတယ်…";
+  try{const r=await api("/api/voiceover",J("POST",{text:t.value,voice:voState.voice,speed:1+voState.speed/100,pause_ms:voState.pause,srt_chars:voState.chars,srt_lines:voState.lines}));voOut(r)}
+  catch(e){$("#vOut").innerHTML=`<p class="err">${esc(e.message)}</p>`}finally{$("#vGo").disabled=false;$("#vGo").textContent="🎙️ Generate voice"}}}
+function voOut(r){$("#vOut").innerHTML=`<div class="card" style="padding:14px"><audio controls src="${r.wav}" style="width:100%"></audio><div style="display:flex;gap:8px;margin-top:8px;align-items:center"><a class="btn" href="${r.wav}" download>⤓ WAV</a><a class="btn ghost" href="${r.srt}" download>⤓ SRT</a><span class="mut" style="margin-left:auto">${r.seconds}s</span></div></div>`}
+async function vBody(){const b=$("#vBody");
+ if(voState.tab==="voice"){b.innerHTML=`<div class="lbl" style="margin-top:0">Voices</div><div class="vgrid">${VOICES.map(v=>`<div class="vchip ${voState.voice===v.id?"on":""}" data-v="${v.id}">${voState.voice===v.id?"✓ ":""}${v.n}<button data-p="${v.id}">▶</button></div>`).join("")}</div>`;
+  $$(".vchip").forEach(c=>c.onclick=e=>{if(e.target.dataset.p){new Audio(`/api/voices/${e.target.dataset.p}/preview?speed=${1+voState.speed/100}`).play();return}voState.voice=c.dataset.v;vBody()})}
+ else if(voState.tab==="setting"){b.innerHTML=`<div class="lbl" style="margin-top:0">Speed</div>${sl("vsp",-40,60,5,voState.speed,"%")}<div class="lbl">Pause (စာကြောင်းကြား)</div>${sl("vpa",0,1500,50,voState.pause,"ms")}
+  <div class="lbl">SRT chars / line</div>${sl("vch",12,60,1,voState.chars)}<div class="lbl">SRT lines</div>${seg("vln",[[1,"1"],[2,"2"]],voState.lines)}<p style="text-align:center"><a href="#" id="vRs">Reset</a></p>`;
+  bindSl("vsp",v=>voState.speed=v,"%");bindSl("vpa",v=>voState.pause=v,"ms");bindSl("vch",v=>voState.chars=v);bindSeg("vln",v=>voState.lines=+v);$("#vRs").onclick=e=>{e.preventDefault();Object.assign(voState,{speed:0,pause:150,chars:32,lines:1});vBody()}}
+ else{b.innerHTML="…";const h=await api("/api/voiceover").catch(()=>[]);b.innerHTML=h.map(x=>`<div class="row" style="cursor:pointer" data-w="${x.wav}" data-s="${x.srt}" data-d="${x.seconds}"><div><b style="font-weight:600">${esc(x.text.slice(0,40))}…</b><small>${new Date(x.created*1000).toLocaleString()} · ${x.seconds}s</small></div>▶</div>`).join("")||`<p class="mut">မရှိသေးပါ</p>`;
+  $$("#vBody .row").forEach(r=>r.onclick=()=>voOut({wav:r.dataset.w,srt:r.dataset.s,seconds:r.dataset.d}))}}
+// ------------------------------------------------------------ SETTINGS
+let setTab="defaults";
+function Settings(){const T=[["defaults","Defaults"],["models","AI Models"],["render","Render / Workers"],["brand","Brand"],["postkit","Post Kit"],["app","App"],["apikey","☁ Cloud / API Key"],["folder","Save folder"]];
+ $("#view").innerHTML=`<div class="top"><h1>Settings</h1></div><div class="set"><div class="card menu">${T.map(([k,l])=>`<a data-k="${k}" class="${setTab===k?"on":""}">${l}</a>`).join("")}</div><div class="card body" id="sb"></div></div>`;
+ $$(".set .menu a").forEach(a=>a.onclick=()=>{setTab=a.dataset.k;Settings()});setBody()}
+async function setBody(){const b=$("#sb"),p=prefs;
+ if(setTab==="defaults"){b.innerHTML=`<h2>Defaults</h2><p class="d">Studio မှာ ပြောင်းတိုင်း အလိုလို မှတ်ထားပြီး နောက်တစ်ခါ အဲ့ဒီအတိုင်း စပါတယ်</p>
+  <div class="lbl">Mode</div>${seg("dm",[["recap","AI Recap"],["pro","Pro Dub"],["subtitle","Subtitle"]],p.mode)}<div class="lbl">Ratio</div>${seg("da",[["original","Original"],["9:16","9:16"],["1:1","1:1"],["4:5","4:5"],["16:9","16:9"]],p.aspect)}
+  <div class="lbl">Voice</div>${seg("dv",VOICES.map(v=>[v.id,v.n]),p.voice)}<div class="lbl">Theme</div>${seg("th",[["auto","Auto"],["light","Light"],["dark","Dark"]],document.documentElement.dataset.theme||"auto")}
+  <p><button class="btn line" id="dRs">Default အတိုင်း ပြန်ထား</button></p>`;
+  bindSeg("dm",v=>{p.mode=v;save()});bindSeg("da",v=>{p.aspect=v;save()});bindSeg("dv",v=>{p.voice=v;save()});
+  bindSeg("th",v=>{if(v==="auto")delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=v;try{v==="auto"?localStorage.removeItem("theme"):localStorage.setItem("theme",v)}catch(e){}});
+  $("#dRs").onclick=()=>{prefs={...DEF,cap:{...DEF.cap}};save();toast("ပြန်ထားပြီးပါပြီ");setBody()}}
+ else if(setTab==="models"){const h=await api("/api/health").catch(()=>({}));b.innerHTML=`<h2>AI Models</h2><p class="d">အားလုံး ဒီကွန်ပျူတာထဲမှာ run တာပါ (free)</p>
+  <div class="row"><div><b>Ollama</b><small>Script / ဘာသာပြန် / ပုံ နားလည်</small></div><span class="tag ${h.ollama?"ok":""}">${h.ollama?"Running":"ပိတ်နေ"}</span></div>
+  <div class="lbl">Script / ဘာသာပြန်</div>${seg("ml",[["gemma4:26b","26b အကောင်းဆုံး"],["gemma4:12b","12b"],["gemma4:e4b","e4b အမြန်"]],p.llm)}
+  <div class="lbl">တရုတ်စကား နားထောင်</div>${seg("ma",[["large-v3-turbo","Whisper turbo ✓"],["large-v3","large-v3"],["belle-zh","Belle (စမ်းသပ်)"]],p.asr)}
+  <p class="mut">26b မပွင့်ရင် (memory မလောက်) 12b → e4b အလိုလို ပြောင်းသုံးပါတယ်။</p>`;bindSeg("ml",v=>{p.llm=v;save()});bindSeg("ma",v=>{p.asr=v;save()})}
+ else if(setTab==="render"){const w=await api("/api/workers").catch(()=>({})),h=await api("/api/health").catch(()=>({}));b.innerHTML=`<h2>Render / Workers</h2><p class="d">ဗီဒီယိုကို ဒီကွန်ပျူတာ GPU (NVENC) နဲ့ ထုတ်ပါတယ် — ဘယ်မှ upload မလုပ်ပါ</p>
+  <div class="row"><div><b>Hardware encode (NVENC)</b><small>GPU နဲ့ အမြန် render</small></div><span class="tag ${h.nvenc?"ok":""}">${h.nvenc?"On":"CPU fallback"}</span></div>
+  <div class="lbl">Job workers (ဗီဒီယို တပြိုင်နက်)</div>${sl("wj",1,16,1,w.max_workers)}<div class="lbl">Render workers (clip chunk တပြိုင်နက်)</div>${sl("wr",1,16,1,w.render_workers)}
+  <div class="lbl">TTS workers (မြန်မာအသံ တပြိုင်နက်)</div>${sl("wt",1,16,1,w.tts_workers)}<p class="mut">CPU ${w.cpu_count} core · GPU model အဆင့်တွေ (Whisper/LLM/OCR) က 8GB GPU အတွက် တစ်ခုချင်း run ပါတယ်</p>`;
+  const put=(k,v)=>api("/api/workers",J("PUT",{[k]:v}));bindSl("wj",v=>put("max_workers",v));bindSl("wr",v=>put("render_workers",v));bindSl("wt",v=>put("tts_workers",v))}
+ else if(setTab==="brand"){b.innerHTML=`<h2>Brand preset</h2><p class="d">Watermark စာနဲ့ logo ကို တစ်ခါ သိမ်းထားရင် job အသစ်တိုင်း သုံးပါတယ်</p>${sw("ba",p.brandAll,"Job အသစ်တိုင်း သုံးမယ်")}
+  <div class="lbl">Watermark text</div><input class="in" id="bw" value="${esc(p.wmText)}" placeholder="My Channel"><div class="lbl">Logo</div>
+  <div style="display:flex;gap:10px;align-items:center">${p.logo?`<img src="${p.logo.url}" style="width:56px;height:56px;border-radius:50%;object-fit:cover">`:""}<button class="btn ghost" id="bu">Upload logo</button><input type="file" id="bf" accept="image/*" class="hide"></div>
+  <div class="lbl">နေရာ</div>${seg("bp",[["top_left","↖ ဘယ်အပေါ်"],["top_right","↗ ညာအပေါ်"],["bottom_left","↙"],["bottom_right","↘"]],p.wmPos)}`;
+  bindSw("ba",v=>{p.brandAll=v;p.wmOn=v&&!!p.wmText;p.logoOn=v&&!!p.logo;save()});$("#bw").oninput=e=>{p.wmText=e.target.value;if(p.brandAll)p.wmOn=!!p.wmText;save()};
+  $("#bu").onclick=()=>$("#bf").click();$("#bf").onchange=async e=>{const fd=new FormData();fd.append("file",e.target.files[0]);p.logo=await api("/api/assets",{method:"POST",body:fd});if(p.brandAll)p.logoOn=true;save();setBody()};bindSeg("bp",v=>{p.wmPos=v;save()})}
+ else if(setTab==="postkit"){b.innerHTML=`<h2>Post Kit</h2><p class="d">TikTok caption, hashtags, thumbnail (local LLM)</p>${sw("pk2",p.postKit,"ဗီဒီယိုတိုင်း Post Kit လုပ်မယ်")}
+  <div class="lbl">Main hashtags</div><textarea class="in" id="ph" rows="2">${esc(p.hashtags)}</textarea>${sw("pf",p.fyp,"Add #fyp")}`;
+  bindSw("pk2",v=>{p.postKit=v;save()});$("#ph").oninput=e=>{p.hashtags=e.target.value;save()};bindSw("pf",v=>{p.fyp=v;save()})}
+ else if(setTab==="app"){b.innerHTML=`<h2>App</h2><p class="d">Install · notifications</p>
+  <div class="row"><div><b>App အဖြစ် install</b><small>Desktop / Start menu ကနေ ဖွင့်လို့ရ</small></div><button class="btn ghost" id="ai">Install app</button></div>
+  ${sw("nt",p.notify,"ဗီဒီယို ပြီးရင် အသိပေးမယ်","Window နောက်မှာ ရှိနေလည်း")}${sw("ad",p.autoDl,"ပြီးတာနဲ့ အလိုလို download")}
+  <div class="row"><div><b>App cache ရှင်း</b><small>Settings နဲ့ project တွေ မပျက်ပါ</small></div><button class="btn line" id="cc">Clear</button></div>`;
+  $("#ai").onclick=()=>installPrompt?installPrompt.prompt():toast("Browser menu → Install app ကို သုံးပါ (သို့) install ပြီးသားပါ");
+  bindSw("nt",async v=>{if(v&&"Notification" in window)v=(await Notification.requestPermission())==="granted";p.notify=v;save();setBody()});bindSw("ad",v=>{p.autoDl=v;save()});
+  $("#cc").onclick=async()=>{if("caches" in window)for(const k of await caches.keys())await caches.delete(k);location.reload()}}
+ else if(setTab==="apikey"){const E=await api("/api/engine").catch(()=>({mode:"local",keys:{}})),k=E.keys||{};const both=k.assemblyai?.set&&k.openrouter?.set;
+  b.innerHTML=`<h2>☁ Cloud mode (API key) <span class="tag ${E.mode==="cloud"?"ok":""}">${E.mode==="cloud"?"Cloud ဖွင့်ထား":"Local GPU"}</span></h2>
+  <p class="d">GPU မသုံးဘဲ AssemblyAI (စကား → စာ) နဲ့ OpenRouter (ဘာသာပြန် / script / ပုံ နားလည်) ကို internet ကနေ သုံးတာပါ။ Key ထည့်ပြီး အောက်က switch ဖွင့်ရင် <b>ဗီဒီယို အသစ်တိုင်း</b> cloud နဲ့ လုပ်ပါတယ်။</p>
+  <div class="lbl">အလုပ်လုပ်မယ့် နည်း</div>${seg("emode",[["local","🖥 Local GPU (free)"],["cloud","☁ Cloud (API key)"]],E.mode)}
+  <p class="mut" id="emsg">${both?"":"Cloud ဖွင့်ဖို့ key ၂ ခုလုံး အရင် ထည့်ပါ (အဆင့် ၁–၂)။"}</p>
+  <details ${E.mode==="cloud"&&both?"":"open"}><summary><b>📖 အဆင့်ဆင့် လုပ်နည်း (အသေးစိတ်)</b></summary><div style="line-height:1.9;font-size:13px;margin-top:8px">
+   <b>အဆင့် ၁ — AssemblyAI key (တရုတ်စကား → စာ)</b><br>
+   ① <a href="https://www.assemblyai.com/dashboard/signup" target="_blank">assemblyai.com</a> မှာ Sign up လုပ်ပါ (Google account နဲ့ ရ)။<br>
+   ② ဝင်ပြီးရင် Dashboard ဘယ်ဘက်က <b>API Keys</b> ကို နှိပ်ပါ။<br>
+   ③ Key ကို <b>Copy</b> လုပ်ပြီး အောက်က AssemblyAI ကွက်ထဲ paste လုပ်ကာ <b>Save</b> → <b>Test</b> နှိပ်ပါ။ "Key အလုပ်လုပ်ပါတယ်" ပေါ်ရင် ရပါပြီ။<br>
+   💡 စာရင်းသွင်းရင် free credit အနည်းငယ် ပေးလေ့ရှိပါတယ်၊ ကုန်ရင် ကတ်နဲ့ ဖြည့်ရပါတယ် (အသံ မိနစ်နဲ့ တွက်)။<br><br>
+   <b>အဆင့် ၂ — OpenRouter key (ဘာသာပြန် / script)</b><br>
+   ① <a href="https://openrouter.ai" target="_blank">openrouter.ai</a> မှာ Sign in လုပ်ပါ။<br>
+   ② ညာဘက်အပေါ် menu → <b>Credits</b> မှာ ငွေ နည်းနည်း ဖြည့်ပါ ($5 လောက်နဲ့ ဗီဒီယို အများကြီး လုပ်လို့ရ — model ပေါ် မူတည်)။<br>
+   ③ menu → <b>Keys</b> → <b>Create Key</b> → နာမည်ပေး → ပေါ်လာတဲ့ <code>sk-or-v1-…</code> ကို copy (တစ်ခါပဲ ပြပါတယ်)။<br>
+   ④ အောက်က OpenRouter ကွက်ထဲ paste → <b>Save</b> → <b>Test</b>။<br><br>
+   <b>အဆင့် ၃ — Model ရွေးပါ</b><br>
+   "Model စာရင်း ယူ" နှိပ်ရင် OpenRouter မှာ ရှိတဲ့ model တွေကို ဈေးနှုန်း (1M token ကို $) နဲ့ ပြပါတယ်။ မြန်မာစာအတွက် <b>Google Gemini</b> မျိုးဆက်တွေ အကောင်းဆုံးပါ။ ပုံနားလည်ဖို့ model က 🖼 (image) ရတဲ့ဟာ ဖြစ်ရပါမယ်။<br><br>
+   <b>အဆင့် ၄ — Cloud ကို ဖွင့်ပါ</b><br>
+   အပေါ်က <b>☁ Cloud (API key)</b> ကို နှိပ်ပါ။ အဲ့ဒီနောက် Studio မှာ ဗီဒီယို အသစ် တင်ရင် cloud နဲ့ အလိုလို လုပ်ပါတယ် (အရင် project တွေကို မပြောင်းပါ)။<br><br>
+   <b>Cloud mode မှာ ဘာတွေ ပြောင်းသွားလဲ</b><br>
+   • စကား နားထောင် → AssemblyAI · Script/ဘာသာပြန်/Post Kit/ပုံနားလည် → OpenRouter model<br>
+   • မြန်မာ အသံ → Nara Mini (CPU) · ဗီဒီယို render → CPU (x264, GPU ထက် နှေး) · OCR/scene → CPU<br>
+   • "တရုတ်ပြောသံ ဖယ်" (Demucs) က GPU လိုလို့ cloud mode မှာ "မူရင်းအသံ ဖြုတ်" ကို အလိုလို ပြောင်းပါတယ်<br>
+   • <b>Privacy:</b> ဗီဒီယိုရဲ့ အသံ နဲ့ frame အချို့ကို AssemblyAI / OpenRouter ဆီ ပို့ပါတယ်။ Local mode မှာ ဘာမှ မပို့ပါ။<br>
+   • ပြဿနာ: "credit မလောက်" → OpenRouter မှာ ငွေဖြည့်ပါ · "Key မမှန်" → key အသစ်လုပ်ပါ · Internet မရှိရင် Local ကို ပြန်ပြောင်းပါ။<br>
+   ⚠ Key ကို ဘယ်သူ့ကိုမှ မပေးပါနဲ့ (chat ထဲလည်း မပို့ပါနဲ့)။ ပေါက်သွားရင် website မှာ ဖျက်ပြီး အသစ်လုပ်ပါ။
+  </div></details>
+  ${[["assemblyai","① AssemblyAI (speech → text)"],["openrouter","② OpenRouter (script / ဘာသာပြန်)"]].map(([n,tt])=>`<div class="kbox"><b>${tt}</b><span class="tag ${k[n]?.set?"ok":""}">${k[n]?.set?"Saved "+esc(k[n].hint):"Not set"}</span>
+   <div style="display:flex;gap:8px;margin-top:8px"><input class="in" type="password" id="k_${n}" placeholder="Paste your key here" autocomplete="off"><button class="btn ghost" data-save="${n}">Save</button><button class="btn line" data-test="${n}">Test</button>${k[n]?.set?`<button class="btn red" data-clr="${n}">Clear</button>`:""}</div><div class="mut" id="kr_${n}"></div></div>`).join("")}
+  <div class="kbox"><b>③ Cloud models</b><div class="lbl">Script / ဘာသာပြန် / Post Kit</div><input class="in" id="eLlm" list="orList" value="${esc(E.llm)}">
+   <div class="lbl">ပုံ နားလည် (vision 🖼)</div><input class="in" id="eVis" list="orList" value="${esc(E.vision)}"><datalist id="orList"></datalist>
+   <div style="display:flex;gap:8px;margin-top:8px"><button class="btn ghost" id="eLoad">Model စာရင်း ယူ</button><button class="btn" id="eSave">Model သိမ်း</button></div><div id="eList" class="mut" style="max-height:200px;overflow:auto;margin-top:8px"></div></div>`;
+  bindSeg("emode",async v=>{try{await api("/api/engine",J("PUT",{mode:v}));toast(v==="cloud"?"☁ Cloud mode ဖွင့်ပြီး":"🖥 Local GPU mode");setBody()}catch(e){$("#emsg").innerHTML=`<span class="err">${esc(e.message)}</span>`;setBody()}});
+  $$("[data-save]").forEach(x=>x.onclick=async()=>{const n=x.dataset.save,v=$("#k_"+n).value.trim();if(!v)return;await api("/api/keys",J("PUT",{[n]:v}));toast("သိမ်းပြီးပါပြီ");setBody()});
+  $$("[data-clr]").forEach(x=>x.onclick=async()=>{await api("/api/keys",J("PUT",{[x.dataset.clr]:""}));if(E.mode==="cloud")await api("/api/engine",J("PUT",{mode:"local"})).catch(()=>{});setBody()});
+  $$("[data-test]").forEach(x=>x.onclick=async()=>{const n=x.dataset.test;$("#kr_"+n).textContent="စစ်နေပါတယ်…";const r=await api("/api/keys/test",J("POST",{name:n})).catch(e=>({ok:false,message:e.message}));$("#kr_"+n).innerHTML=`<span class="${r.ok?"ok":"err"}">${r.ok?"✓":"✕"} ${esc(r.message)}</span>`});
+  $("#eSave").onclick=async()=>{await api("/api/engine",J("PUT",{llm:$("#eLlm").value.trim(),vision:$("#eVis").value.trim()}));toast("Model သိမ်းပြီး")};
+  $("#eLoad").onclick=async()=>{$("#eList").textContent="ယူနေပါတယ်…";try{const L=await api("/api/openrouter/models");$("#orList").innerHTML=L.map(m=>`<option value="${esc(m.id)}">`).join("");
+   const g=L.filter(m=>/gemini|gpt|claude|qwen|deepseek|llama/i.test(m.id)).slice(0,80);$("#eList").innerHTML=`<table style="width:100%;font-size:12px">${g.map(m=>`<tr style="cursor:pointer" data-id="${esc(m.id)}"><td>${esc(m.id)} ${m.vision?"🖼":""}</td><td style="text-align:right">$${m.in} / $${m.out}</td></tr>`).join("")}</table><div>ဈေး = input / output, 1M token ကို $ · နှိပ်ရင် Script model အဖြစ် ရွေးပါတယ်</div>`;
+   $$("#eList tr").forEach(r=>r.onclick=()=>{$("#eLlm").value=r.dataset.id})}catch(e){$("#eList").innerHTML=`<span class="err">${esc(e.message)}</span>`}}}
+ else{const h=await api("/api/health").catch(()=>({}));b.innerHTML=`<h2>Videos folder</h2><p class="d">ထုတ်ပြီးသား mp4 / srt တွေ ဒီ folder ထဲမှာ ရှိပါတယ်</p><div class="row"><code style="font-size:12px">${esc(h.projects_root||"")}</code></div><p class="mut">Library ထဲက project ကို ဖွင့်ပြီး 📂 Folder နှိပ်ရင် Explorer နဲ့ ပွင့်ပါတယ်။</p>`}}
+// ------------------------------------------------------------ boot
+let installPrompt=null;addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;$("#installBtn").classList.remove("hide")});
+$("#installBtn").onclick=()=>installPrompt&&installPrompt.prompt();
+async function foot(){try{const[h,w]=await Promise.all([api("/api/health"),api("/api/workers")]);const busy=w.workers.filter(x=>x.busy).length;
+ $("#foot").innerHTML=`<div><span class="dot ${h.ollama?"on":""}"></span>Ollama · <span class="dot ${h.nvenc?"on":""}"></span>GPU</div><div style="margin-top:4px">Worker ${busy}/${w.max_workers} · တန်းစီ ${w.queued.length}</div>`}catch(e){$("#foot").textContent="Server မချိတ်မိပါ"}}
+addEventListener("keydown",e=>{if(!location.hash.match(/studio|^$/)&&location.hash!=="")return;if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return;
+ const k=e.key.toLowerCase(),m={b:"blur",e:"edit",c:"crop",d:"done"};const v=$("#vid");
+ if(m[k]&&v){S.tool=m[k];if(k==="d")S.sel=-1;$$(".tools .tool").forEach(x=>x.classList.toggle("on",x.dataset.k===S.tool));drawOv()}
+ else if((k==="delete"||k==="backspace")&&S.sel>=0){S.boxes.splice(S.sel,1);S.sel=-1;drawOv();panel()}
+ else if(k===" "&&v){e.preventDefault();v.paused?v.play():v.pause()}});
+async function jobsBox(){const l=await api("/api/projects").catch(()=>[]);const run=l.filter(p=>p.job&&(p.job.state==="running"||p.job.state==="queued"));
+ $("#jobs").innerHTML=run.map(p=>`<a href="#/project/${p.project_id}"><b>${esc(p.title||p.project_id)}</b><span class="mut">${p.job.state==="queued"?"တန်းစီ":esc(STEP_MY[p.job.stage]||p.job.stage)} · ${Math.round(p.job.progress*100)}%</span><div class="pbar"><b style="width:${Math.round(p.job.progress*100)}%"></b></div></a>`).join("")}
+jobsBox();setInterval(()=>!document.hidden&&jobsBox(),3000);
+foot();setInterval(()=>!document.hidden&&foot(),5000);route();
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>

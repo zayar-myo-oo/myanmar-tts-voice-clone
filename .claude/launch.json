@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "recap-studio",
+      "runtimeExecutable": ".venv-recap\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "recap_engine.server", "--no-browser"],
+      "port": 8765
+    }
+  ]
+}
