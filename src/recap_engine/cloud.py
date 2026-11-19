@@ -21,6 +21,7 @@ import httpx
 
 from .errors import Cancelled, RecapError
 
+KEY_NAMES = ("openrouter", "assemblyai", "anthropic", "openai", "elevenlabs")
 KEYS_FILE = Path(__file__).resolve().parents[2] / "config" / "api_keys.json"
 OR_URL = "https://openrouter.ai/api/v1"
 AAI_URL = "https://api.assemblyai.com/v2"
@@ -34,12 +35,15 @@ def load_keys() -> dict[str, str]:
         pass
     k.setdefault("openrouter", os.environ.get("OPENROUTER_API_KEY", ""))
     k.setdefault("assemblyai", os.environ.get("ASSEMBLYAI_API_KEY", ""))
+    k.setdefault("anthropic", os.environ.get("ANTHROPIC_API_KEY", ""))
+    k.setdefault("openai", os.environ.get("OPENAI_API_KEY", ""))
+    k.setdefault("elevenlabs", os.environ.get("ELEVENLABS_API_KEY", ""))
     return k
 
 
 def save_keys(changes: dict[str, str]) -> None:
     k = load_keys()
-    for name in ("openrouter", "assemblyai"):
+    for name in KEY_NAMES:
         if name in changes:
             k[name] = (changes[name] or "").strip()
     KEYS_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -49,19 +53,34 @@ def save_keys(changes: dict[str, str]) -> None:
 def masked() -> dict[str, Any]:
     k = load_keys()
     return {n: {"set": bool(v), "hint": (v[:6] + "…" + v[-4:]) if len(v) > 12 else ("set" if v else "")}
-            for n, v in k.items() if n in ("openrouter", "assemblyai")}
+            for n, v in k.items() if n in KEY_NAMES}
 
 
 def _key(name: str) -> str:
     v = load_keys().get(name, "")
     if not v:
-        label = {"openrouter": "OpenRouter", "assemblyai": "AssemblyAI"}[name]
+        label = {"openrouter": "OpenRouter", "assemblyai": "AssemblyAI", "anthropic": "Claude (Anthropic)", "openai": "OpenAI",
+                 "elevenlabs": "ElevenLabs"}[name]
         raise RecapError("missing_key", f"{label} API key မထည့်ရသေးပါ။ Settings → API Key မှာ ထည့်ပါ။")
     return v
 
 
 def test_key(name: str) -> dict:
+    if name in ("openai", "elevenlabs"):
+        from .providers import test
+        return test(name)
     try:
+        if name == "anthropic":
+            import anthropic
+            try:
+                anthropic.Anthropic(api_key=_key(name), max_retries=0, timeout=20).models.list(limit=1)
+                return {"ok": True, "message": "Key အလုပ်လုပ်ပါတယ်"}
+            except anthropic.AuthenticationError:
+                return {"ok": False, "message": "Key မမှန်ပါ (401)"}
+            except anthropic.APIStatusError as e:
+                return {"ok": False, "message": f"Key စစ်လို့ မရပါ ({e.status_code})"}
+            except anthropic.APIConnectionError:
+                return {"ok": False, "message": "Anthropic ကို ချိတ်လို့ မရပါ — internet စစ်ပါ"}
         if name == "openrouter":
             r = httpx.get(f"{OR_URL}/key", headers={"Authorization": f"Bearer {_key(name)}"}, timeout=20)
         else:

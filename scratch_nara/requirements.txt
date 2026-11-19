@@ -1,5 +1,0 @@
-numpy>=1.26,<3
-onnxruntime>=1.23.2
-misaki==0.9.4
-phonemizer-fork==3.3.2
-espeakng-loader==0.2.4

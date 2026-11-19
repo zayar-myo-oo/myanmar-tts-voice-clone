@@ -133,7 +133,14 @@ def edge_synth(text: str, voice_id: str, out: Path, speed: float = 1.0) -> float
     return audio_duration(out)
 
 
+def is_remote_voice(voice_id: str) -> bool:
+    return voice_id in EDGE_VOICES or voice_id.startswith("el:")
+
+
 def synth_any(text: str, voice_id: str, out: Path, speed: float = 1.0) -> float:
+    if voice_id.startswith("el:"):  # ElevenLabs (user's key)
+        from .providers import elevenlabs_tts
+        return elevenlabs_tts(text, voice_id, out, speed)
     if voice_id in EDGE_VOICES:
         return edge_synth(text, voice_id, out, speed)
     with TTSClient.lease() as tts:
@@ -148,7 +155,8 @@ def synth_cached(text: str, voice_id: str, out_dir: Path, stem: str, speed: floa
     """Synthesize with caching by hash(text after pronunciation dict, voice, speed)."""
     spoken = prepare_text(text)
     h = hash_obj({"t": spoken, "v": voice_id, "s": round(speed, 3),
-                  "engine": "edge-neural" if voice_id in EDGE_VOICES else "nara-mini-v1"})
+                  "engine": "elevenlabs" if voice_id.startswith("el:") else
+                  "edge-neural" if voice_id in EDGE_VOICES else "nara-mini-v1"})
     out = out_dir / f"{stem}_{h}.wav"
     if out.exists():
         return {"path": out, "seconds": audio_duration(out), "hash": h, "cache_hit": True}
@@ -247,7 +255,7 @@ def stage_voice(ctx: Context) -> dict[str, str]:
                          f"မြန်မာ အသံ ထုတ်နေပါတယ် {done[0]}/{len(beats)} (worker {TTSClient.workers()})")
         return entry
 
-    if any((b.get("voice_id") or ctx.settings.voice_id) not in EDGE_VOICES for b in beats):
+    if any(not is_remote_voice(b.get("voice_id") or ctx.settings.voice_id) for b in beats):
         TTSClient._ensure_pool()
     with ThreadPoolExecutor(max_workers=TTSClient.workers()) as ex:
         log = list(ex.map(one, beats))  # each worker takes its own lines; order kept

@@ -1,0 +1,45 @@
+# Drama Recap Studio (src/recap_engine) - Python 3.11, Windows, NVIDIA GPU (CUDA 12.8)
+# Install:
+#   py -3.11 -m venv .venv-recap
+#   .venv-recap\Scripts\pip install torch==2.7.1 torchaudio==2.7.1 torchvision==0.22.1 --index-url https://download.pytorch.org/whl/cu128
+#   .venv-recap\Scripts\pip install -r requirements-recap.txt
+#   .venv-recap\Scripts\pip install -e . --no-deps
+# Burmese TTS (Nara Mini) runs in the voice studio's own .venv-nara (see README).
+
+# speech, audio, video
+faster-whisper==1.2.1
+ctranslate2==4.9.0
+demucs==4.1.0
+scenedetect==0.7.3
+opencv-python-headless==5.1.0.95
+open_clip_torch==4.2.2
+rapidocr==3.10.0
+onnxruntime-gpu==1.22.0      # 1.22 = CUDA 12; newer builds need CUDA 13
+pyloudnorm==0.2.0
+soundfile==0.14.0
+numpy==2.3.5
+scipy==1.17.1
+pillow==13.0.0
+yt-dlp==2026.10.26
+
+# Chinese / Burmese text
+pypinyin==0.55.0
+opencc-python-reimplemented==0.1.7
+
+# web app
+fastapi==0.163.2
+uvicorn[standard]==0.54.0
+python-multipart==0.0.34
+httpx==0.28.1
+pydantic==2.14.3
+
+# optional cloud providers (own API keys) + online voices
+anthropic==2.10.0
+edge-tts==7.3.1
+
+# optional OCR fallback (CPU)
+# paddleocr==3.7.0
+# paddlepaddle==3.3.1
+
+# tests
+pytest==9.2.0

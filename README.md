@@ -11,6 +11,10 @@ desktop app, a CLI and an MCP server.*
 > in dev mode). Phase 7 (fine-tuning with your own voice) has started and is waiting for recordings.
 > Installers (Phase 10) have not started. Details: [docs/burmese-tts-handoff.md](docs/burmese-tts-handoff.md).
 
+> 🎬 **New: Drama Recap Studio** — a local web app that turns Chinese dramas into Burmese recaps, dubs and
+> subtitled videos, plus an Animation Studio (script → cartoon short). Setup and features:
+> [docs/drama-recap-studio.md](docs/drama-recap-studio.md) · run `Drama Recap Studio.bat`.
+
 ---
 
 ## ဘာတွေ လုပ်နိုင်လဲ

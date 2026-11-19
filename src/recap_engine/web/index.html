@@ -101,7 +101,7 @@ details{margin-top:12px}details pre{background:var(--bg);border-radius:10px;padd
 <aside>
   <div class="logo"><i>DR</i><div><b>Drama Recap</b><small>Studio · local · free</small></div></div>
   <nav id="nav">
-    <a href="#/home" data-r="home">🏠 One Click AI</a><a href="#/studio" data-r="studio">🎬 Studio</a><a href="#/voiceover" data-r="voiceover">🎙️ Voiceover</a>
+    <a href="#/home" data-r="home">🏠 One Click AI</a><a href="#/studio" data-r="studio">🎬 Studio</a><a href="#/voiceover" data-r="voiceover">🎙️ Voiceover</a><a href="#/anim" data-r="anim">🎨 Animation</a>
     <a href="#/finder" data-r="finder">🔎 Source Finder</a><a href="#/library" data-r="library">📁 Library</a><a href="#/settings" data-r="settings">⚙️ Settings</a>
   </nav>
   <div class="sp"></div>
@@ -125,10 +125,14 @@ let prefs={...DEF,...LS.get("prefs",{})};if(prefs.asr==="belle-zh"&&!LS.get("asr
 let S={file:null,url:"",src:null,boxes:[],crop:null,tool:"edit",sel:-1,tab:"video",pid:null,timer:null,logOpen:false};
 try{const t=localStorage.getItem("theme");if(t)document.documentElement.dataset.theme=t}catch(e){}
 const VOICES=[{id:"male_calm",n:"အေးချမ်း",g:"ကျား"},{id:"male_deep",n:"သြဇာ",g:"ကျား"},{id:"female_warm",n:"နွေးထွေး",g:"မ"},{id:"edge_thiha",n:"Thiha",g:"ကျား · Microsoft ☁"},{id:"edge_nilar",n:"Nilar",g:"မ · Microsoft ☁"}];
+let PROV=null,LLM_EXTRA=[];
+async function loadProv(){if(PROV)return PROV;PROV=await api("/api/providers").catch(()=>({}));
+ (PROV.elevenlabs?.voices||[]).forEach(v=>{if(!VOICES.some(x=>x.id===v.id))VOICES.push({id:v.id,n:v.name,g:"ElevenLabs ☁"})});
+ LLM_EXTRA=[...(PROV.claude?.models||[]).map(m=>["claude:"+m,"Script: Claude "+m+" ☁"]),...(PROV.openai?.models||[]).slice(0,25).map(m=>["oai:"+m,"Script: OpenAI "+m+" ☁"])];return PROV}
 const STEP_MY={import:"ဗီဒီယို ယူ",audio:"အသံ ထုတ်",separate:"အသံ ခွဲ",shots:"Scene ခွဲ",ocr:"စာတန်း ဖတ်",vision:"ပုံ နားလည်",transcribe:"စကား နားထောင်",script:"Script / ဘာသာပြန်",voice:"မြန်မာ အသံ",timeline:"Timeline",captions:"စာတန်းထိုး",render:"ဗီဒီယို ထုတ်",qc:"QC စစ်",rights:"Rights စစ်",export:"Post Kit"};
 // ------------------------------------------------------------ router
 function route(){const h=location.hash.replace(/^#\//,"")||"home";const [r,arg]=h.split("/");$$("#nav a").forEach(a=>a.classList.toggle("on",a.dataset.r===r||(r==="project"&&a.dataset.r==="library")));
-  clearInterval(S.timer);({home:Home,finder:Finder,studio:Studio,voiceover:Voiceover,library:Library,settings:Settings,project:Project}[r]||Home)(arg)}
+  clearInterval(S.timer);clearTimeout(S.timer);({home:Home,anim:Anim,finder:Finder,studio:Studio,voiceover:Voiceover,library:Library,settings:Settings,project:Project}[r]||Home)(arg)}
 addEventListener("hashchange",route);
 // ------------------------------------------------------------ STUDIO
 function Studio(){
@@ -215,7 +219,7 @@ function panel(){const b=$("#pbody");if(!b)return;const c=prefs.cap,up=()=>{save
    <div class="lbl">Zoom</div>${sl("zm",100,130,1,Math.round(prefs.zoom*100),"%")}
    ${sw("tfOn",prefs.tf,"Advanced Transformation","အရောင်၊ stabilize၊ chapters၊ Rights စစ်")}
    ${prefs.tf?`<select class="in" id="tfp" style="margin-top:6px">${[["custom","Custom"],["clean_drama","Clean Drama"],["cinematic_drama","Cinematic Drama"],["vertical_recap","Vertical Recap"],["subtitle_focus","Subtitle Focus"]].map(([v,l])=>`<option value="${v}" ${prefs.tfPreset===v?"selected":""}>${l}</option>`).join("")}</select>`:""}
-   ${S.engine==="cloud"?`<div class="lbl">AI Models</div><p class="mut">☁ Cloud mode ဖွင့်ထားပါတယ် — Settings → Cloud / API Key မှာ ပြောင်းပါ</p>`:""}<div class="${S.engine==="cloud"?"hide":""}"><div class="lbl">AI Models</div><select class="in" id="llm">${[["gemma4:26b","Script: အကောင်းဆုံး (gemma4 26b)"],["gemma4:12b","Script: အလယ်အလတ် (12b)"],["gemma4:e4b","Script: အမြန် (e4b)"]].map(([v,l])=>`<option value="${v}" ${prefs.llm===v?"selected":""}>${l}</option>`).join("")}</select>
+   ${S.engine==="cloud"?`<div class="lbl">AI Models</div><p class="mut">☁ Cloud mode ဖွင့်ထားပါတယ် — Settings → Cloud / API Key မှာ ပြောင်းပါ</p>`:""}<div class="${S.engine==="cloud"?"hide":""}"><div class="lbl">AI Models</div><select class="in" id="llm">${[["gemma4:26b","Script: အကောင်းဆုံး (gemma4 26b)"],["gemma4:12b","Script: အလယ်အလတ် (12b)"],["gemma4:e4b","Script: အမြန် (e4b)"],...LLM_EXTRA].map(([v,l])=>`<option value="${v}" ${prefs.llm===v?"selected":""}>${l}</option>`).join("")}</select>
    <select class="in" id="asr" style="margin-top:6px">${[["large-v3-turbo","နားထောင်: Whisper turbo (အကောင်းဆုံး)"],["large-v3","နားထောင်: Whisper large-v3 (နှေး)"],["belle-zh","နားထောင်: Belle 中文 (စမ်းသပ်)"]].map(([v,l])=>`<option value="${v}" ${prefs.asr===v?"selected":""}>${l}</option>`).join("")}</select></div>`;
   $$("#modes .mode").forEach(m=>m.onclick=()=>{prefs.mode=m.dataset.v;up();panel()});bindSl("tgt",v=>{prefs.target=v;up()},"s");bindSeg("tlen",v=>{prefs.tlen=v;if(v!=="auto")prefs.target=+v;up();panel()});$$("input[name=aud]").forEach(r=>r.onchange=()=>{prefs.audio=r.value;up()});
   bindSeg("asp",v=>{prefs.aspect=v;up()});bindSw("tight",v=>{prefs.tight=v;up()});bindSeg("fit",v=>{prefs.fit=v;up()});bindSw("hd",v=>{prefs.hd=v;up()});bindSw("mir",v=>{prefs.mirror=v;up()});
@@ -327,6 +331,7 @@ function Home(){$("#view").innerHTML=`<div class="top"><h1>One Click AI</h1><spa
   ["💬","One Click Subtitle","မူရင်းအသံ ထားပြီး မြန်မာ စာတန်း ထိုး","စာတန်း ထိုးမယ်","subtitle"],
   ["🎙️","Voiceover Generator","Script ထည့်ရင် မြန်မာ အသံ + SRT","Voiceover ထုတ်မယ်","#/voiceover"],
   ["🔎","Source Finder","Clip ရဲ့ မူရင်း ဇာတ်ကား/channel ကို ရှာ (credit ပေးဖို့ / အကြည်ရဖို့)","ရှာမယ်","#/finder"],
+  ["🎨","Animation Shorts","2D ဇာတ်ကောင် + 3D ကမ္ဘာ cartoon short — script, အသံ, render","Animation ဖွင့်မယ်","#/anim"],
   ["⤓","Video Downloader","YouTube / Bilibili / Douyin link ကနေ ဒေါင်း","ဒေါင်းမယ်","#/finder/dl"]].map(([i,t,d,b,go])=>
   `<div class="card" style="padding:18px;display:flex;flex-direction:column;gap:8px"><div style="font-size:26px">${i}</div><b style="font-size:16px">${t}</b><span class="tag ok" style="align-self:flex-start;margin:0">● Available</span>
    <p class="mut" style="flex:1;margin:0">${d}</p><button class="btn" data-go="${go}">${b} →</button></div>`).join("")}</div>
@@ -355,6 +360,86 @@ async function Finder(arg){const l=await api("/api/projects").catch(()=>[]);cons
  $("#dgo").onclick=async()=>{const u=$("#du").value.trim();if(!u)return;$("#dres").textContent="⏳ ဒေါင်းနေပါတယ်…";try{const r=await api("/api/download",J("POST",{url:u}));
   $("#dres").innerHTML=`✓ ${esc(r.name)} (${r.mb} MB) <a class="btn" style="padding:4px 10px" href="${r.url}" download>⤓ Save</a>`}catch(e){$("#dres").innerHTML=`<span class="err">${esc(e.message)}</span>`}};
  if(arg&&!dl&&l.some(p=>p.project_id===arg))run({project_id:arg})}
+
+// ------------------------------------------------------------ ANIMATION (Remotion cartoon shorts)
+const AF=r=>`/api/anim/file?path=${encodeURIComponent(r)}`;
+const AVOICES=()=>[...VOICES.map(v=>[v.id,v.n+" ("+v.g+")"]),["nara:shoon","Nara app: shoon"],["nara:htet_myat","Nara app: htet_myat"]];
+async function Anim(key){if(key==="new")return AnimNew();if(key)return AnimDetail(key);const d=await api("/api/anim").catch(e=>({ok:false,root:"",shorts:[],err:e.message}));
+ $("#view").innerHTML=`<div class="top"><h1>Animation Shorts</h1><span class="sub">2D ဇာတ်ကောင် + 3D ကမ္ဘာ (Remotion + three.js) · ${esc(d.root)}</span><span style="flex:1"></span><a class="btn" href="#/anim/new">✨ Script → Animation</a><button class="btn ghost" id="aStudio">🎬 Remotion Studio</button></div>
+ ${d.ok?"":`<div class="note" style="margin:0 22px 14px">Animation project မတွေ့ပါ။ Folder လမ်းကြောင်း ထည့်ပါ: <input class="in" id="aRoot" style="margin-top:6px" value="${esc(d.root)}"><button class="btn" id="aRootGo" style="margin-top:6px">သိမ်း</button></div>`}
+ <div class="lib">${d.shorts.map(s=>`<div class="card lc" onclick="location.hash='#/anim/${s.key}'"><div class="th" style="background-image:url('${s.thumb?AF(s.thumb):""}')">${s.thumb?"":"🎨"}</div>
+  <div class="m"><b>${esc(s.id.replace(/Short$/,""))}</b><span class="st ${s.final?"done":""}">${s.final?"ပြီး · "+s.duration+"s":"မ render ရသေး"}</span> <span class="mut">${s.lines} ကြောင်း${s.mix_script?" · mix":""}</span></div></div>`).join("")}</div>
+ <div class="card" style="margin:0 22px 22px;padding:16px"><b>ℹ ဒီ tab က ဘာလုပ်ပေးလဲ</b><p class="mut" style="font-size:13px;line-height:1.8">
+  ✓ Script စာကြောင်း ပြင်ခြင်း · ဇာတ်ကောင်တစ်ယောက်ချင်းစီအတွက် အသံ ရွေးပြီး မြန်မာ voice ထုတ်ခြင်း (timing ကို အလိုလို ပြန်ညှိ) · Still ကြည့်ခြင်း · Sound mix · Render · Final ပေါင်းခြင်း<br>
+  ✎ Scene / ဇာတ်ကောင် / ကင်မရာ အသစ်တွေကတော့ code (story.ts, cast.ts, world.ts) ဖြစ်လို့ Claude Code ထဲမှာ "cartoon short skill" နဲ့ ရေးရပါတယ်။ ရေးပြီးတာနဲ့ ဒီမှာ အလိုလို ပေါ်လာပါမယ်။</p></div>`;
+ $("#aStudio").onclick=async()=>{const r=await api("/api/anim/studio",{method:"POST"});toast("Remotion Studio ဖွင့်နေပါတယ် (စက္ကန့် ၁၀–၂၀)");setTimeout(()=>window.open(r.url,"_blank"),9000)};
+ const rg=$("#aRootGo");if(rg)rg.onclick=async()=>{try{await api("/api/anim/root",J("PUT",{root:$("#aRoot").value.trim()}));Anim()}catch(e){toast(e.message)}}}
+async function AnimDetail(key){const d=await api("/api/anim"),s=d.shorts.find(x=>x.key===key);if(!s){$("#view").innerHTML=`<p class="err" style="padding:22px">မတွေ့ပါ</p>`;return}
+ const L=await api(`/api/anim/${key}/lines`);let lines=L.lines.map(x=>({...x}));const who=()=>[...new Set(lines.map(l=>l.who))];const voices={...L.voices};
+ $("#view").innerHTML=`<div class="top"><a class="btn line" href="#/anim">←</a><h1>${esc(s.id.replace(/Short$/,""))}</h1><span class="sub">${esc(s.src||"")} · ${esc(s.voice_dir)}</span></div>
+ <div class="res"><div class="card" style="padding:14px">${s.final?`<video controls src="${AF(s.final)}"></video><div style="display:flex;gap:8px;margin-top:10px"><a class="btn" href="${AF(s.final)}" download>⤓ MP4</a></div>`:`<p class="mut">Final ဗီဒီယို မရှိသေးပါ — အောက်က "အကုန်လုပ်" နှိပ်ပါ</p>`}
+  <div class="lbl">Script <span class="mut">(ဇာတ်ကောင် · စာသား · နောက်က အနားယူချိန် s)</span></div><div id="aLines"></div>
+  <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn ghost" id="aAdd">＋ စာကြောင်း</button><button class="btn" id="aSave">💾 Script သိမ်း</button></div>
+  <div class="lbl">🤖 AI နဲ့ script အသစ် ရေး (local LLM)</div><div style="display:flex;gap:8px"><input class="in" id="aTopic" placeholder="ခေါင်းစဉ် — ဥပမာ: ရွှေတိဂုံ စေတီ ဘယ်လို ဆောက်ခဲ့လဲ"><button class="btn ghost" id="aGen">ရေးမယ်</button></div>
+  <p class="mut">⚠ Script အသစ်က scene အရေအတွက်နဲ့ မကိုက်ရင် story.ts ကို Claude Code မှာ ပြင်ရပါမယ်။ စာကြောင်း အရေအတွက် တူတူ ထားရင် scene တွေ အလိုလို ညှိပါတယ်။</p></div>
+ <div style="display:flex;flex-direction:column;gap:14px"><div class="card" style="padding:14px"><b>🎙 ဇာတ်ကောင် အသံ</b><div id="aVoices"></div><div class="lbl">Speed</div>${sl("aSpd",-30,40,5,0,"%")}</div>
+  <div class="card" style="padding:14px"><b>🎬 ထုတ်မယ်</b>
+   ${[["voice","🎙 အသံ ထုတ် (voice.wav + timing)"],["ai_code","🤖 Claude နဲ့ scene code ပြန်ရေး (API ငွေကုန်)"],["still","🖼 Still ပုံ ကြည့်"],["mix","🎵 Sound mix"+(s.mix_script?"":" (script မရှိ)")],["render","🎞 Render (ကြာ)"],["mux","🔗 Final ပေါင်း"]].map(([k,l])=>`<label class="row" style="justify-content:flex-start;cursor:pointer"><input type="checkbox" class="aStep" value="${k}" ${k!=="still"&&k!=="ai_code"?"checked":""}>${l}</label>`).join("")}
+   <div class="lbl">Still frames</div><input class="in" id="aFrames" value="30,300,900">${sw("a2k",false,"2K export (1440×2560)","ပိုကြည် · ပိုကြာ")}
+   <button class="btn" style="width:100%;margin-top:10px" id="aGo">▶ ရွေးထားတာ လုပ်မယ်</button><div id="aTask" style="margin-top:10px"></div></div>
+  <div class="card" style="padding:14px" id="aStills"></div></div></div>`;
+ const drawLines=()=>{$("#aLines").innerHTML=lines.map((l,i)=>`<div class="beat" style="display:grid;grid-template-columns:110px 1fr 70px 28px;gap:6px;align-items:start">
+   <input class="in" data-i="${i}" data-k="who" value="${esc(l.who)}"><textarea data-i="${i}" data-k="text">${esc(l.text)}</textarea><input class="in" type="number" step="0.1" data-i="${i}" data-k="gapAfter" value="${l.gapAfter}">
+   <button class="btn red" style="padding:2px 6px" data-del="${i}">✕</button></div>${L.timing[i]&&L.timing[i].text===l.text?`<div class="mut" style="margin:-4px 0 4px">⏱ ${L.timing[i].start}s → ${L.timing[i].end}s</div>`:""}`).join("");
+  $$("#aLines [data-k]").forEach(e=>e.oninput=()=>{const l=lines[+e.dataset.i];l[e.dataset.k]=e.dataset.k==="gapAfter"?+e.value:e.value;if(e.dataset.k==="who")drawVoices()});
+  $$("#aLines [data-del]").forEach(b=>b.onclick=()=>{lines.splice(+b.dataset.del,1);drawLines();drawVoices()})};
+ const drawVoices=()=>{$("#aVoices").innerHTML=who().map(w=>`<div class="row"><b style="font-weight:600">${esc(w)}</b><select class="in" style="width:auto" data-w="${esc(w)}">${AVOICES().map(([v,n])=>`<option value="${v}" ${(voices[w]||"")===v?"selected":""}>${n}</option>`).join("")}</select></div>`).join("");
+  $$("#aVoices select").forEach(x=>{if(!voices[x.dataset.w])voices[x.dataset.w]=x.value;x.onchange=()=>voices[x.dataset.w]=x.value})};
+ drawLines();drawVoices();
+ $("#aAdd").onclick=()=>{lines.push({id:lines.length+1,who:"narrator",gapAfter:.6,text:""});drawLines();drawVoices()};
+ const saveL=async()=>{lines.forEach((l,i)=>l.id=i+1);await api(`/api/anim/${key}/lines`,J("PUT",{lines,voices}))};
+ $("#aSave").onclick=async()=>{await saveL();toast("Script သိမ်းပြီးပါပြီ")};
+ $("#aGen").onclick=async()=>{const t=$("#aTopic").value.trim();if(!t)return;$("#aGen").textContent="ရေးနေပါတယ်…";try{const r=await api(`/api/anim/${key}/script`,J("POST",{topic:t,speakers:who(),n:lines.length||12,model:prefs.llm}));lines=r.lines;drawLines();drawVoices();toast("ရေးပြီး — စစ်ပြီး 'Script သိမ်း' နှိပ်ပါ")}catch(e){toast(e.message)}finally{$("#aGen").textContent="ရေးမယ်"}};
+ $("#aGo").onclick=async()=>{await saveL();const steps=$$(".aStep").filter(c=>c.checked).map(c=>c.value);if(!steps.length)return toast("အဆင့် ရွေးပါ");
+  await api(`/api/anim/${key}/run`,J("POST",{steps,args:{voices,speed:1+(+$("#aSpd").value)/100,frames:$("#aFrames").value,hd2k:$("#a2k").checked}}));toast("စပါပြီ");poll()};
+ const stills=()=>{const fr=$("#aFrames").value.split(",").map(x=>x.trim()).filter(Boolean);$("#aStills").innerHTML=`<b>🖼 Stills</b><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">${fr.map(f=>`<img src="${AF(`out/${key}/still_${f}.jpg`)}&t=${Date.now()}" onerror="this.style.display='none'" style="width:100%;border-radius:8px">`).join("")}</div>`};stills();
+ const poll=async()=>{const ts=(await api("/api/anim/tasks").catch(()=>[])).filter(t=>t.key===key);const t=ts[0];if(!t||!$("#aTask"))return;
+  const run=t.state==="running"||t.state==="queued";$("#aTask").innerHTML=`<div class="pbar"><b style="width:${Math.round(t.progress*100)}%"></b></div><div class="mut">${esc({queued:"တန်းစီ",running:"လုပ်နေ",done:"✓ ပြီး",failed:"✕ မအောင်မြင်",cancelled:"ရပ်ထား"}[t.state])} · [${esc(t.step)}] ${esc(t.message)}</div>
+   <details><summary>Log</summary><pre>${esc(t.log_tail.join("\n"))}</pre></details>${run?`<button class="btn red" style="margin-top:6px" id="aCancel">Cancel</button>`:""}`;
+  const c=$("#aCancel");if(c)c.onclick=()=>api(`/api/anim/tasks/${t.id}/cancel`,{method:"POST"});
+  if(run)S.timer=setTimeout(poll,2000);else if(t.state==="done"){stills();if(t.steps.includes("mux")||t.steps.includes("voice"))setTimeout(()=>AnimDetail(key),500)}};poll()}
+
+// ------------------------------------------------------------ ANIMATION STUDIO: script -> video (Claude API)
+async function AnimNew(){const keys=await api("/api/keys").catch(()=>({}));const hasKey=keys.anthropic?.set;
+ $("#view").innerHTML=`<div class="top"><a class="btn line" href="#/anim">←</a><h1>✨ Script → Animation</h1><span class="sub">Script ပေးလိုက်ရုံနဲ့ cartoon short ထုတ်ပေးမယ်</span></div>
+ <div class="res"><div class="card" style="padding:16px">
+  ${hasKey?"":`<div class="note">⚠ Claude API key မထည့်ရသေးပါ — <a href="#/settings" onclick="setTab='apikey'">Settings → ☁ Cloud / API Key</a> မှာ ④ ကို ထည့်ပါ။ Scene code ကို Claude က ရေးပေးတာပါ။</div>`}
+  <div class="lbl">ခေါင်းစဉ်</div><input class="in" id="nTitle" placeholder="ရွှေတိဂုံ စေတီ ဘယ်လို ဆောက်ခဲ့လဲ">
+  <div class="lbl">Project နာမည် (English, အသေး)</div><input class="in" id="nKey" placeholder="shwedagon">
+  <div class="lbl">Script <span class="mut">— တစ်ကြောင်းချင်း "ဇာတ်ကောင်: စာသား" (ဇာတ်ကောင် မပါရင် narrator)</span></div>
+  <textarea class="in" id="nScript" rows="12" placeholder="kid: ဘုရားကြီးက ဘယ်လောက် မြင့်လဲ?&#10;narrator: ရွှေတိဂုံ စေတီက မီတာ ၁၀၀ နီးပါး မြင့်ပါတယ်။&#10;..."></textarea>
+  <div class="lbl">🤖 မရှိရင် AI နဲ့ ရေးခိုင်းမယ် (local LLM, free)</div><div style="display:flex;gap:8px"><input class="in" id="nTopic" placeholder="ခေါင်းစဉ် / အကြောင်းအရာ"><input class="in" id="nWho" style="width:200px" value="narrator, kid"><button class="btn ghost" id="nGen">ရေးမယ်</button></div>
+  <div class="lbl">ညွှန်ကြားချက် (ရွေးချယ်ခွင့်)</div><input class="in" id="nNotes" placeholder="ဥပမာ: နေဝင်ချိန် အလင်း၊ ဘုရားဖူးတွေ များများ၊ ကလေးက အဝါရောင် အင်္ကျီ">
+ </div><div style="display:flex;flex-direction:column;gap:14px">
+  <div class="card" style="padding:14px"><b>🎨 ပုံစံ (template)</b>${seg("nTpl",[["rock","Rock — narrator + ဇာတ်ကောင် + 2D insert"],["jump","Jump — ပြောင်းလဲတဲ့ နေရာ ၂ ခု"],["pagoda","Pagoda — ဆောက်လုပ်ရေး"]],"rock")}
+   <div class="lbl">Claude model</div>${seg("nModel",[["claude-opus-5-5","Opus 5.5 (အကောင်းဆုံး)"],["claude-sonnet-5-5","Sonnet 5.5 (သက်သာ)"]],"claude-opus-5-5")}
+   <p class="mut">ခန့်မှန်း ကုန်ကျစရိတ်: Opus 5.5 ≈ $1–4 · Sonnet 5.5 ≈ $0.5–2 (ဗီဒီယို ၁ ခု)</p></div>
+  <div class="card" style="padding:14px"><b>🎙 ဇာတ်ကောင် အသံ</b><div id="nVoices"><p class="mut">Script ရေးပြီးရင် ပေါ်လာပါမယ်</p></div></div>
+  <div class="card" style="padding:14px">${sw("nRender",true,"Script ပြီးတာနဲ့ Render ထိ တစ်ခါတည်း ထုတ်","ပိတ်ရင် code + still အထိပဲ (Render ကို နောက်မှ)")}
+   <button class="btn" style="width:100%;margin-top:10px;padding:12px" id="nGo" ${hasKey?"":"disabled"}>✨ Animation ထုတ်မယ်</button><div id="nMsg" class="mut" style="margin-top:8px"></div>
+   <p class="mut">အဆင့်များ: ① အသံ ထုတ် → ② Claude က scene code ရေး → ③ TypeScript စစ် / ပြင် → ④ Still ၃ ပုံ Claude စစ် → ⑤ Render (၃၀–၆၀ မိနစ်) → ⑥ Final MP4</p></div></div></div>`;
+ let tpl="rock",model="claude-opus-5-5";const voices={};bindSeg("nTpl",v=>tpl=v);bindSeg("nModel",v=>model=v);
+ const parse=()=>$("#nScript").value.split("\n").map(x=>x.trim()).filter(Boolean).map((x,i)=>{const m=x.match(/^([^:：]{1,20})[:：]\s*(.+)$/);return{id:i+1,who:m?m[1].trim():"narrator",text:m?m[2]:x,gapAfter:.6}});
+ const drawV=()=>{const ws=[...new Set(parse().map(l=>l.who))];$("#nVoices").innerHTML=ws.length?ws.map(w=>`<div class="row"><b style="font-weight:600">${esc(w)}</b><select class="in" style="width:auto" data-w="${esc(w)}">${AVOICES().map(([v,n])=>`<option value="${v}" ${voices[w]===v?"selected":""}>${n}</option>`).join("")}</select></div>`).join(""):`<p class="mut">Script ရေးပြီးရင် ပေါ်လာပါမယ်</p>`;
+  $$("#nVoices select").forEach(s=>{if(!voices[s.dataset.w])voices[s.dataset.w]=s.value;s.onchange=()=>voices[s.dataset.w]=s.value})};
+ $("#nScript").oninput=drawV;
+ $("#nTitle").oninput=e=>{if(!$("#nKey").dataset.touched){const a=e.target.value.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,20);$("#nKey").value=a||("short"+Date.now().toString().slice(-6))}};$("#nKey").oninput=e=>e.target.dataset.touched=1;
+ $("#nGen").onclick=async()=>{const t=$("#nTopic").value.trim()||$("#nTitle").value.trim();if(!t)return toast("ခေါင်းစဉ် ထည့်ပါ");$("#nGen").textContent="ရေးနေပါတယ်…";
+  try{const r=await api("/api/anim/new/script",J("POST",{topic:t,speakers:$("#nWho").value.split(",").map(x=>x.trim()).filter(Boolean),n:12,model:prefs.llm}));
+   $("#nScript").value=r.lines.map(l=>`${l.who}: ${l.text}`).join("\n");if(!$("#nTitle").value)$("#nTitle").value=t;drawV();toast("ရေးပြီး — ဖတ်ပြီး ပြင်ချင်တာ ပြင်ပါ")}catch(e){toast(e.message)}finally{$("#nGen").textContent="ရေးမယ်"}};
+ $("#nGo").onclick=async()=>{const lines=parse();if(lines.length<3)return toast("Script အနည်းဆုံး ၃ ကြောင်း ရေးပါ");drawV();$("#nGo").disabled=true;$("#nMsg").textContent="စနေပါတယ်…";
+  try{await api("/api/anim/create",J("POST",{key:$("#nKey").value.trim(),title:$("#nTitle").value.trim(),template:tpl,model,lines,voices,notes:$("#nNotes").value,render:$("#nRender").checked}));
+   location.hash="#/anim/"+$("#nKey").value.trim()}catch(e){$("#nMsg").innerHTML=`<span class="err">${esc(e.message)}</span>`;$("#nGo").disabled=false}};drawV()}
 // ------------------------------------------------------------ LIBRARY
 async function Library(){$("#view").innerHTML=`<div class="top"><h1>Library</h1><span class="sub">ဒီကွန်ပျူတာထဲက project အားလုံး</span></div><div class="lib" id="lib"></div>`;
  const load=async()=>{const l=await api("/api/projects").catch(()=>[]);const el=$("#lib");if(!el)return;
@@ -441,6 +526,15 @@ async function setBody(){const b=$("#sb"),p=prefs;
    ④ အောက်က OpenRouter ကွက်ထဲ paste → <b>Save</b> → <b>Test</b>။<br><br>
    <b>အဆင့် ၃ — Model ရွေးပါ</b><br>
    "Model စာရင်း ယူ" နှိပ်ရင် OpenRouter မှာ ရှိတဲ့ model တွေကို ဈေးနှုန်း (1M token ကို $) နဲ့ ပြပါတယ်။ မြန်မာစာအတွက် <b>Google Gemini</b> မျိုးဆက်တွေ အကောင်းဆုံးပါ။ ပုံနားလည်ဖို့ model က 🖼 (image) ရတဲ့ဟာ ဖြစ်ရပါမယ်။<br><br>
+   <b>Claude API key (Animation Studio အတွက်)</b><br>
+   ① <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> မှာ ဝင်ပါ → <b>Billing</b> မှာ credit ဖြည့်ပါ → <b>API Keys → Create Key</b> → <code>sk-ant-…</code> ကို copy ပြီး ④ ကွက်မှာ Save → Test။<br>
+   ② Animation ဗီဒီယို တစ်ခုကို Claude Opus 5.5 နဲ့ ဆိုရင် ခန့်မှန်း $1–4 လောက် ကုန်ပါတယ် (code ရေး + ပြင် + ပုံစစ်)။ Sonnet 5.5 ဆို တစ်ဝက်လောက်။<br><br>
+   <b>OpenAI (ChatGPT / Codex) key</b><br>
+   ① <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a> → <b>Create new secret key</b> → <code>sk-…</code> copy → ⑤ ကွက်မှာ Save → Test။ (ChatGPT Plus subscription နဲ့ API က သီးခြားပါ — API အတွက် Billing မှာ credit ဖြည့်ရပါတယ်)<br>
+   ② ပြီးရင် Studio → Video → AI Models မှာ "Script: OpenAI …" model တွေ ပေါ်လာပါမယ်။<br><br>
+   <b>ElevenLabs key</b><br>
+   ① <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank">elevenlabs.io → Settings → API Keys</a> → <b>Create API Key</b> (Text to Speech + Voices ခွင့်ပြု) → copy → ⑥ ကွက်မှာ Save → Test (ကျန်တဲ့ စာလုံးရေ ပြပါတယ်)။<br>
+   ② ပြီးရင် Voice tab / Voiceover / Animation မှာ မင်းရဲ့ ElevenLabs voice တွေ ("ElevenLabs ☁") ပေါ်လာပါမယ်။ အောက်က model မှာ 🇲🇲 ပါတဲ့ model ကို ရွေးပါ (မြန်မာ ပါတဲ့ model)။<br><br>
    <b>အဆင့် ၄ — Cloud ကို ဖွင့်ပါ</b><br>
    အပေါ်က <b>☁ Cloud (API key)</b> ကို နှိပ်ပါ။ အဲ့ဒီနောက် Studio မှာ ဗီဒီယို အသစ် တင်ရင် cloud နဲ့ အလိုလို လုပ်ပါတယ် (အရင် project တွေကို မပြောင်းပါ)။<br><br>
    <b>Cloud mode မှာ ဘာတွေ ပြောင်းသွားလဲ</b><br>
@@ -451,13 +545,17 @@ async function setBody(){const b=$("#sb"),p=prefs;
    • ပြဿနာ: "credit မလောက်" → OpenRouter မှာ ငွေဖြည့်ပါ · "Key မမှန်" → key အသစ်လုပ်ပါ · Internet မရှိရင် Local ကို ပြန်ပြောင်းပါ။<br>
    ⚠ Key ကို ဘယ်သူ့ကိုမှ မပေးပါနဲ့ (chat ထဲလည်း မပို့ပါနဲ့)။ ပေါက်သွားရင် website မှာ ဖျက်ပြီး အသစ်လုပ်ပါ။
   </div></details>
-  ${[["assemblyai","① AssemblyAI (speech → text)"],["openrouter","② OpenRouter (script / ဘာသာပြန်)"]].map(([n,tt])=>`<div class="kbox"><b>${tt}</b><span class="tag ${k[n]?.set?"ok":""}">${k[n]?.set?"Saved "+esc(k[n].hint):"Not set"}</span>
+  ${[["assemblyai","① AssemblyAI (speech → text)"],["openrouter","② OpenRouter (script / ဘာသာပြန်)"],["anthropic","④ Claude API (Animation code + Script)"],["openai","⑤ OpenAI / ChatGPT / Codex API (Script / ဘာသာပြန်)"],["elevenlabs","⑥ ElevenLabs API (အသံ)"]].map(([n,tt])=>`<div class="kbox"><b>${tt}</b><span class="tag ${k[n]?.set?"ok":""}">${k[n]?.set?"Saved "+esc(k[n].hint):"Not set"}</span>
    <div style="display:flex;gap:8px;margin-top:8px"><input class="in" type="password" id="k_${n}" placeholder="Paste your key here" autocomplete="off"><button class="btn ghost" data-save="${n}">Save</button><button class="btn line" data-test="${n}">Test</button>${k[n]?.set?`<button class="btn red" data-clr="${n}">Clear</button>`:""}</div><div class="mut" id="kr_${n}"></div></div>`).join("")}
+  <div class="kbox"><b>🔊 ElevenLabs model</b><div id="elm" class="mut">Key ထည့်ပြီးရင် ပေါ်လာပါမယ်</div></div>
   <div class="kbox"><b>③ Cloud models</b><div class="lbl">Script / ဘာသာပြန် / Post Kit</div><input class="in" id="eLlm" list="orList" value="${esc(E.llm)}">
    <div class="lbl">ပုံ နားလည် (vision 🖼)</div><input class="in" id="eVis" list="orList" value="${esc(E.vision)}"><datalist id="orList"></datalist>
    <div style="display:flex;gap:8px;margin-top:8px"><button class="btn ghost" id="eLoad">Model စာရင်း ယူ</button><button class="btn" id="eSave">Model သိမ်း</button></div><div id="eList" class="mut" style="max-height:200px;overflow:auto;margin-top:8px"></div></div>`;
+  api("/api/providers").then(P=>{const ms=P.elevenlabs?.models||[];if(!ms.length)return;
+   $("#elm").innerHTML=`<select class="in" id="elSel" style="margin-top:6px"><option value="">Auto (မြန်မာ ပါတဲ့ model ကို အလိုလို ရွေး)</option>${ms.map(m=>`<option value="${esc(m.id)}" ${P.el_model===m.id?"selected":""}>${esc(m.name)} ${m.burmese?"🇲🇲 မြန်မာ ပါ":""} · ဘာသာ ${m.languages}</option>`).join("")}</select>`;
+   $("#elSel").onchange=e=>api("/api/engine",J("PUT",{el_model:e.target.value})).then(()=>toast("သိမ်းပြီးပါပြီ"))}).catch(()=>{});
   bindSeg("emode",async v=>{try{await api("/api/engine",J("PUT",{mode:v}));toast(v==="cloud"?"☁ Cloud mode ဖွင့်ပြီး":"🖥 Local GPU mode");setBody()}catch(e){$("#emsg").innerHTML=`<span class="err">${esc(e.message)}</span>`;setBody()}});
-  $$("[data-save]").forEach(x=>x.onclick=async()=>{const n=x.dataset.save,v=$("#k_"+n).value.trim();if(!v)return;await api("/api/keys",J("PUT",{[n]:v}));toast("သိမ်းပြီးပါပြီ");setBody()});
+  $$("[data-save]").forEach(x=>x.onclick=async()=>{const n=x.dataset.save,v=$("#k_"+n).value.trim();if(!v)return;await api("/api/keys",J("PUT",{[n]:v}));PROV=null;await loadProv();toast("သိမ်းပြီးပါပြီ");setBody()});
   $$("[data-clr]").forEach(x=>x.onclick=async()=>{await api("/api/keys",J("PUT",{[x.dataset.clr]:""}));if(E.mode==="cloud")await api("/api/engine",J("PUT",{mode:"local"})).catch(()=>{});setBody()});
   $$("[data-test]").forEach(x=>x.onclick=async()=>{const n=x.dataset.test;$("#kr_"+n).textContent="စစ်နေပါတယ်…";const r=await api("/api/keys/test",J("POST",{name:n})).catch(e=>({ok:false,message:e.message}));$("#kr_"+n).innerHTML=`<span class="${r.ok?"ok":"err"}">${r.ok?"✓":"✕"} ${esc(r.message)}</span>`});
   $("#eSave").onclick=async()=>{await api("/api/engine",J("PUT",{llm:$("#eLlm").value.trim(),vision:$("#eVis").value.trim()}));toast("Model သိမ်းပြီး")};
@@ -478,7 +576,7 @@ addEventListener("keydown",e=>{if(!location.hash.match(/studio|^$/)&&location.ha
 async function jobsBox(){const l=await api("/api/projects").catch(()=>[]);const run=l.filter(p=>p.job&&(p.job.state==="running"||p.job.state==="queued"));
  $("#jobs").innerHTML=run.map(p=>`<a href="#/project/${p.project_id}"><b>${esc(p.title||p.project_id)}</b><span class="mut">${p.job.state==="queued"?"တန်းစီ":esc(STEP_MY[p.job.stage]||p.job.stage)} · ${Math.round(p.job.progress*100)}%</span><div class="pbar"><b style="width:${Math.round(p.job.progress*100)}%"></b></div></a>`).join("")}
 jobsBox();setInterval(()=>!document.hidden&&jobsBox(),3000);
-foot();setInterval(()=>!document.hidden&&foot(),5000);route();
+foot();setInterval(()=>!document.hidden&&foot(),5000);loadProv().finally(route);
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body>

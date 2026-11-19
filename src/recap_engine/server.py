@@ -327,7 +327,7 @@ def keys() -> dict:
 
 @app.put("/api/keys")
 def put_keys(body: dict) -> dict:
-    cloud.save_keys({k: v for k, v in body.items() if k in ("openrouter", "assemblyai")})
+    cloud.save_keys({k: v for k, v in body.items() if k in cloud.KEY_NAMES})
     return cloud.masked()
 
 
@@ -458,7 +458,7 @@ def open_folder(pid: str) -> dict:
 
 # ------------------------------------------------------------------ engine mode (local GPU / cloud)
 ENGINE_FILE = Path(__file__).resolve().parents[2] / "config" / "app_settings.json"
-ENGINE_DEFAULT = {"mode": "local", "llm": "google/gemini-2.5-flash", "vision": "google/gemini-2.5-flash"}
+ENGINE_DEFAULT = {"mode": "local", "llm": "google/gemini-2.5-flash", "vision": "google/gemini-2.5-flash", "el_model": ""}
 
 
 def engine() -> dict:
@@ -491,6 +491,13 @@ def put_engine(body: dict) -> dict:
     ENGINE_FILE.write_text(json.dumps(e, indent=2), "utf-8")
     _apply_engine(e)
     return get_engine()
+
+
+@app.get("/api/providers")
+def providers_summary() -> dict:
+    """Which paid providers are set up + their live model / voice lists (for the pickers)."""
+    from . import providers
+    return {**providers.summary(), "el_model": engine().get("el_model", "")}
 
 
 @app.get("/api/openrouter/models")
@@ -572,6 +579,88 @@ def split_video(pid: str, body: dict) -> dict:
             "-f", "segment", "-segment_time", str(sec), "-reset_timestamps", "1", str(out / "part_%02d.mp4")])
     parts = sorted(out.glob("part_*.mp4"))
     return {"parts": [f"export/parts/{f.name}" for f in parts]}
+
+
+# ------------------------------------------------------------------ animation tab (Remotion cartoon shorts)
+from . import animation  # noqa: E402
+
+
+@app.get("/api/anim")
+def anim_list() -> dict:
+    return animation.discover()
+
+
+@app.put("/api/anim/root")
+def anim_root(body: dict) -> dict:
+    animation.set_root(body.get("root", ""))
+    return animation.discover()
+
+
+@app.get("/api/anim/{key}/lines")
+def anim_lines(key: str) -> dict:
+    return animation.get_lines(key)
+
+
+@app.put("/api/anim/{key}/lines")
+def anim_save_lines(key: str, body: dict) -> dict:
+    animation.save_lines(key, body.get("lines", []), body.get("voices"))
+    return animation.get_lines(key)
+
+
+@app.post("/api/anim/{key}/script")
+def anim_script(key: str, body: dict) -> dict:
+    lines = animation.write_script(body.get("topic", ""), body.get("model") or "gemma4:26b",
+                                   body.get("speakers") or ["narrator"], int(body.get("n", 12)))
+    return {"lines": lines}
+
+
+@app.post("/api/anim/create")
+def anim_create(body: dict) -> dict:
+    """New short from a script: scaffold from a template, save lines + voices, then queue
+    voice -> Claude scene code -> render -> final mux."""
+    from . import anim_ai
+    from .cloud import load_keys
+    if not load_keys().get("anthropic"):
+        raise HTTPException(400, "Claude API key မထည့်ရသေးပါ။ Settings → ☁ Cloud / API Key မှာ ထည့်ပါ။")
+    key = (body.get("key") or "").strip().lower()
+    anim_ai.scaffold(key, body.get("template", "rock"))
+    animation.save_lines(key, body.get("lines", []), body.get("voices", {}))
+    steps = ["voice", "ai_code"] + (["render", "mux"] if body.get("render", True) else [])
+    return animation.submit(key, steps, {"voices": body.get("voices", {}), "speed": body.get("speed", 1.0),
+                                         "title": body.get("title", key), "notes": body.get("notes", ""),
+                                         "model": body.get("model") or "claude-opus-5-5", "review": True})
+
+
+@app.post("/api/anim/{key}/run")
+def anim_run(key: str, body: dict) -> dict:
+    return animation.submit(key, body.get("steps", []), body.get("args", {}))
+
+
+@app.get("/api/anim/tasks")
+def anim_tasks() -> list[dict]:
+    return [animation.public(t) for t in sorted(animation.TASKS.values(), key=lambda x: -x["created"])][:20]
+
+
+@app.post("/api/anim/tasks/{tid}/cancel")
+def anim_cancel(tid: str) -> dict:
+    animation.cancel(tid)
+    return {"ok": True}
+
+
+@app.get("/api/anim/tasks/{tid}/log")
+def anim_log(tid: str) -> Response:
+    t = animation.TASKS.get(tid)
+    return Response("\n".join(t["log"]) if t else "", media_type="text/plain; charset=utf-8")
+
+
+@app.get("/api/anim/file")
+def anim_file(path: str):
+    return FileResponse(animation.safe_file(path))
+
+
+@app.post("/api/anim/studio")
+def anim_studio() -> dict:
+    return {"url": animation.start_studio()}
 
 
 app.mount("/", StaticFiles(directory=WEB, html=True), name="web")

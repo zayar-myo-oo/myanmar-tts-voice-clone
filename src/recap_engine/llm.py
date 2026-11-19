@@ -82,7 +82,7 @@ def model_caps(name: str) -> tuple[str, ...]:
 
 
 def pick_vision_model(preferred: str | None) -> str | None:
-    if preferred and preferred.startswith("or:"):
+    if preferred and preferred.startswith(("or:", "claude:", "oai:")):
         return preferred
     models = list_models()
     if preferred:
@@ -100,7 +100,7 @@ def pick_vision_model(preferred: str | None) -> str | None:
 
 
 def unload(model: str) -> None:
-    if model.startswith("or:"):
+    if model.startswith(("or:", "claude:", "oai:")):
         return
     try:
         httpx.post(OLLAMA + "/api/generate", json={"model": model, "keep_alive": 0}, timeout=30)
@@ -110,6 +110,13 @@ def unload(model: str) -> None:
 
 def chat(model: str, system: str, user: str, *, json_schema: dict | None = None, temperature: float = 0.6,
          num_ctx: int = 8192, keep_alive: str | int = "5m", images: list[Path] | None = None) -> str:
+    if model.startswith("claude:"):  # Claude API (user's Anthropic key)
+        from .providers import claude_chat
+        txt = claude_chat(model[7:], system, user, json_schema=json_schema, images=images)
+        return re.sub(r"<think>.*?</think>", "", txt, flags=re.S).strip()
+    if model.startswith("oai:"):  # OpenAI API (ChatGPT / Codex models, user's key)
+        from .providers import openai_chat
+        return openai_chat(model[4:], system, user, json_schema=json_schema, images=images)
     if model.startswith("or:"):  # Own-key mode: OpenRouter cloud model
         from .cloud import openrouter_chat
         txt = openrouter_chat(model[3:], system, user, json_schema=json_schema, temperature=temperature, images=images)

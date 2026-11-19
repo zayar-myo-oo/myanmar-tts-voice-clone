@@ -44,3 +44,18 @@ config/api_keys.json
 projects/_uploads/
 models/
 config/app_settings.json
+
+# local tool config / scratch work (kept on disk, not published)
+.claude/
+config/backups/
+config/animation.json
+scratch_nara/
+scratch_f5/
+scripts/female_sweet.py
+scripts/male_round5.py
+scripts/voice_filter_variants.py
+scripts/voice_variants3.py
+scripts/voice_variants4.py
+scripts/make_asr_test_clips.py
+.remotion-tmp/
+*.mp4
