@@ -20,7 +20,8 @@ STAGES: list[Stage] = [
           enabled=lambda c: c.settings.original_audio == "remove_vocals"),
     Stage("shots", "Shot တွေ ခွဲနေပါတယ်", analyze.shots_inputs, analyze.stage_shots),
     Stage("ocr", "မူရင်း စာတန်းထိုး ဖတ်နေပါတယ်", analyze.ocr_inputs, analyze.stage_ocr),
-    Stage("vision", "ပုံရိပ်တွေကို နားလည်အောင် ကြည့်နေပါတယ်", analyze.vision_inputs, analyze.stage_vision),
+    Stage("vision", "ပုံရိပ်တွေကို နားလည်အောင် ကြည့်နေပါတယ်", analyze.vision_inputs, analyze.stage_vision,
+          enabled=lambda c: c.settings.mode == "recap"),  # Pro Dub / Subtitle don't pick shots
     Stage("transcribe", "စကားပြော နားထောင်နေပါတယ်", transcribe.transcribe_inputs, transcribe.stage_transcribe),
     Stage("script", "Script ရေးနေပါတယ်", script.script_inputs, script.stage_script),
     Stage("voice", "မြန်မာ အသံ ထုတ်နေပါတယ်", tts.voice_inputs, tts.stage_voice,

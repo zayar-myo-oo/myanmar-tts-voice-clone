@@ -218,6 +218,13 @@ def new_project(settings: str = Form("{}"), url: str = Form(""), title: str = Fo
         raise HTTPException(400, f"settings မမှန်ပါ: {e}") from e
     if s.mode == "subtitle":
         s.original_audio = "keep_all"
+    if s.language != "my":  # English / Thai output: matching font, line length and a voice that speaks it
+        cap = s.caption.model_copy(update={"font": {"en": "Noto Sans", "th": "Noto Sans Thai"}[s.language],
+                                           "max_chars_per_line": max(s.caption.max_chars_per_line,
+                                                                     {"en": 34, "th": 28}[s.language])})
+        s.caption = cap
+        if not voice_speaks(s.voice_id, s.language):
+            s.voice_id = {"en": "edge_en_andrew", "th": "edge_th_niwat"}[s.language]
     e = engine()
     if e["mode"] == "cloud":  # API-key mode: cloud ASR + LLM + vision, no GPU stages
         s.whisper_model = "assemblyai"
@@ -313,6 +320,17 @@ from . import cloud  # noqa: E402
 ASSETS = ROOT / "_assets"
 VOICEOVER = ROOT / "_voiceover"
 SAMPLE_MY = "မင်္ဂလာပါ။ ဒီနေ့ ဇာတ်လမ်းလေးတစ်ပုဒ်ကို အတူတူ ကြည့်ကြရအောင်။"
+def voice_speaks(voice_id: str, lang: str) -> bool:
+    """Local Nara + Thiha/Nilar = Burmese only; edge_en_* / edge_th_* = that language; ElevenLabs = any."""
+    if voice_id.startswith("el:"):
+        return True
+    if voice_id.startswith("edge_en_"):
+        return lang == "en"
+    if voice_id.startswith("edge_th_"):
+        return lang == "th"
+    return lang == "my"
+
+
 VOICES = [{"id": "male_calm", "name": "အေးချမ်း (ကျား)", "gender": "male"},
           {"id": "male_deep", "name": "သြဇာ (ကျား)", "gender": "male"},
           {"id": "female_warm", "name": "နွေးထွေး (မ)", "gender": "female"},
@@ -341,14 +359,19 @@ def voices() -> list[dict]:
     return VOICES
 
 
+SAMPLES = {"my": SAMPLE_MY, "en": "Hello! Today, let's watch a short and exciting story together.",
+           "th": "สวัสดีครับ วันนี้มาดูเรื่องสั้นสนุก ๆ ด้วยกันนะครับ"}
+
+
 @app.get("/api/voices/{vid}/preview")
-def voice_preview(vid: str, speed: float = 1.0):
+def voice_preview(vid: str, speed: float = 1.0, lang: str = ""):
     from . import tts
     from .pipeline import STAGE_LOCKS
     d = VOICEOVER / "_preview"
     d.mkdir(parents=True, exist_ok=True)
     with STAGE_LOCKS["voice"]:
-        r = tts.synth_cached(SAMPLE_MY, vid, d, f"pv_{vid}", max(0.6, min(1.6, speed)))
+        lg = lang if lang in SAMPLES else next(x for x in ("en", "th", "my") if voice_speaks(vid, x))
+        r = tts.synth_cached(SAMPLES[lg], vid, d, f"pv_{vid.replace(':', '_')}_{lg}", max(0.6, min(1.6, speed)))
     return FileResponse(r["path"], media_type="audio/wav")
 
 

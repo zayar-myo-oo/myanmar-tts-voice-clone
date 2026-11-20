@@ -57,6 +57,14 @@ def export_inputs(ctx: Context) -> Any:
             "tags": [ctx.settings.hashtags, ctx.settings.add_fyp]}
 
 
+def post_kit_model(model: str) -> str:
+    """Short captions/hashtags don't need the big model: local gemma4 -> gemma4:e4b when installed."""
+    from .llm import list_models
+    if model.startswith("gemma4:") and model != "gemma4:e4b" and "gemma4:e4b" in list_models():
+        return "gemma4:e4b"
+    return model
+
+
 def stage_export(ctx: Context) -> dict[str, str]:
     p = ctx.project
     s = ctx.settings
@@ -67,17 +75,20 @@ def stage_export(ctx: Context) -> dict[str, str]:
     hook = beats[0].get("spoken_text", beats[0]["narration"]) if beats else ""
     try:
         with gpu_lock(p, "llm-postkit"):
-            kit = chat_json(s.llm_model, "You write social media posts for Burmese drama-recap pages. Natural spoken Burmese.",
-                            f"Recap script:\n{script_txt[:4000]}\n\nWrite: title (short, clickable, Burmese), caption "
-                            "(2-3 Burmese sentences that tease without spoiling the ending, end with a question), "
-                            "hashtags (8-12; mix Burmese and English like #ဇာတ်လမ်းအကျဉ်း #ChineseDrama #MovieRecap), "
-                            "thumb_text (max 8 Burmese words, bold hook for a thumbnail). JSON.",
+            L = {"my": "Burmese", "en": "English", "th": "Thai"}[s.language]
+            kit = chat_json(post_kit_model(s.llm_model), f"You write social media posts for {L} drama-recap pages. Natural spoken {L}.",
+                            f"Recap script:\n{script_txt[:4000]}\n\nWrite: title (short, clickable, {L}), caption "
+                            f"(2-3 {L} sentences that tease without spoiling the ending, end with a question), "
+                            f"hashtags (8-12; {L} plus English like #ChineseDrama #MovieRecap), "
+                            f"thumb_text (max 8 {L} words, bold hook for a thumbnail). JSON.",
                             POST_SCHEMA, temperature=0.8)
             unload(s.llm_model)
     except Exception as e:  # noqa: BLE001  post kit must never block the export
         p.log(f"post kit LLM failed: {e}")
         kit = {"title": p.manifest.title, "caption": hook, "hashtags": ["#MovieRecap", "#ChineseDrama", "#ဇာတ်လမ်းအကျဉ်း"],
                "thumb_text": p.manifest.title}
+    from .burmese import norm_for
+    normalize = lambda t: norm_for(t, s.language)  # noqa: E731
     kit = {"title": normalize(kit.get("title", "")), "caption": normalize(kit.get("caption", "")),
            "hashtags": [h if h.startswith("#") else "#" + h for h in kit.get("hashtags", []) if h],
            "thumb_text": normalize(kit.get("thumb_text", "")), "hook": hook}

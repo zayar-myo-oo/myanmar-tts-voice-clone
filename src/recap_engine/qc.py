@@ -93,7 +93,7 @@ def caption_overflow(cues: list[dict], max_chars: int) -> list[dict]:
 
 
 def qc_inputs(ctx: Context) -> Any:
-    return {"render": ctx.project.stage("render").input_hash, "at": ctx.project.stage("render").finished, "v": 3}
+    return {"render": ctx.project.stage("render").input_hash, "at": ctx.project.stage("render").finished, "v": 4}
 
 
 def stage_qc(ctx: Context) -> dict[str, str]:
@@ -155,6 +155,17 @@ def stage_qc(ctx: Context) -> dict[str, str]:
             warnings.append("မူရင်း တရုတ်အသံ ပြောင်းသွားပုံ ရပါတယ်။ Audio enhance ကို ပိတ်ကြည့်ပါ။")
         if not s.transform.loudnorm and "loudness_ok" in checks:
             warnings = [w for w in warnings if "LUFS" not in w]  # user turned loudness normalisation off
+    if s.mode in ("pro", "subtitle"):  # line-by-line translation: numbers must survive (30 -> 20 is a real error)
+        from .numcheck import mismatch
+        bad = []
+        for b in beats:
+            mm = mismatch(b.get("chinese", ""), b.get("narration") or b.get("burmese") or "")
+            if mm:
+                bad.append({"id": b["id"], "chinese": b.get("chinese", ""), "text": b.get("narration", ""), **mm})
+        checks["number_mismatch"] = bad
+        if bad:
+            warnings.append(f"ဂဏန်း မကိုက်တဲ့ စာကြောင်း {len(bad)} ကြောင်း ရှိပါတယ် (#" +
+                            ", #".join(str(x["id"]) for x in bad[:8]) + ") — Script ပြင်ရန် မှာ ⚠ ပြထားပါတယ်။")
     checks["warnings_my"] = warnings
     checks["passed"] = not warnings
     p.write_json("export/qc_report.json", checks)

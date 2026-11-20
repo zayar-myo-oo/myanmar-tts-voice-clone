@@ -13,7 +13,7 @@ from typing import Any
 
 import numpy as np
 
-from .burmese import display_len, normalize
+from .burmese import display_len, norm_for, normalize
 from .errors import RecapError
 from .llm import chat_json, unload
 from .pipeline import Context, gpu_lock
@@ -29,6 +29,25 @@ STYLE_HINTS = {
 }
 
 LANG_NAME = {"my": "Burmese (Myanmar Unicode)", "en": "English", "th": "Thai"}
+NAME_RULE = {  # what the character table's display name ("my" field) holds for each output language
+    "my": "Burmese transliteration in Myanmar script that stays fixed forever",
+    "en": "English name that stays fixed forever: pinyin for real names (林渊 -> Lin Yuan), short English label for "
+          "descriptive ones (年轻男子 -> the young man)",
+    "th": "Thai transliteration in Thai script that stays fixed forever",
+}
+STYLE_EXAMPLE = {
+    "my": "ဒီကောင်လေးက သူ့အဖေ ဘယ်သူလဲဆိုတာ မသိဘဲ ကြီးလာခဲ့တာ။ ဒါပေမဲ့ တစ်နေ့မှာတော့ ...",
+    "en": "This kid grew up never knowing who his father was. But one day...",
+    "th": "เด็กคนนี้โตมาโดยไม่รู้เลยว่าพ่อของเขาคือใคร แต่แล้ววันหนึ่ง...",
+}
+
+
+def _has_script(s: str, lang: str) -> bool:
+    if lang == "my":
+        return any("\u1000" <= ch <= "\u109f" for ch in s)
+    if lang == "th":
+        return any("\u0e00" <= ch <= "\u0e7f" for ch in s)
+    return bool(s) and not any("\u4e00" <= ch <= "\u9fff" for ch in s) and any(ch.isalpha() for ch in s)
 
 
 # ------------------------------------------------------------------ helpers
@@ -119,12 +138,12 @@ def build_story_memory(ctx: Context, cues: list[dict], shots: list[dict], captio
         system = ("You are a meticulous story analyst for Chinese dramas. You read timestamped evidence "
                   "(SAY = dialogue/subtitles in Chinese, SEE = visual description of a shot) and keep a story memory. "
                   "Only record events supported by the evidence. Never invent events.")
-        user = (f"Known characters (keep these Burmese names EXACTLY; add new ones only when clearly a new person):\n"
+        user = (f"Known characters (keep these names EXACTLY; add new ones only when clearly a new person):\n"
                 f"{json.dumps(mem['characters'], ensure_ascii=False)}\n\n"
                 f"Story so far: {mem['so_far'] or '(start)'}\n\n"
                 f"Evidence for {fmt_t(a)}s-{fmt_t(b)}s:\n" + "\n".join(lines[:700]) +
                 "\n\nReturn JSON: characters = FULL updated table (zh = Chinese name or descriptive label like 男主, "
-                "my = Burmese transliteration in Myanmar script that stays fixed forever, role, gender, relations); "
+                f"my = {NAME_RULE[ctx.settings.language]}, role, gender, relations); "
                 "events = the important events in THIS window with start/end seconds taken from evidence, "
                 "an English summary, characters involved (zh names), importance 1-5, visual=true if the event is "
                 "mainly visible rather than spoken (slap, look, reveal). Never add a descriptive label (男主, 年轻女性) "
@@ -167,19 +186,23 @@ def _has_my(s: str) -> bool:
     return any("က" <= ch <= "႟" for ch in s)
 
 
-def burmese_names(model: str, chars: list[dict]) -> list[dict]:
-    """Make sure every character has a Myanmar-script name (the LLM often returns pinyin/English).
-    Names already in Myanmar script are never changed (cross-episode consistency)."""
-    todo = [c for c in chars if not _has_my(c.get("my", ""))]
+NAME_EXAMPLE = {"my": "林渊 -> လင်ယွမ်; 年轻男子 -> လူငယ်လေး, 中年男子 -> လူလတ်ပိုင်း. Myanmar script only.",
+                "en": "林渊 -> Lin Yuan; 年轻男子 -> the young man, 中年男子 -> the middle-aged man. Latin letters only.",
+                "th": "林渊 -> หลินหยวน; 年轻男子 -> ชายหนุ่ม, 中年男子 -> ชายวัยกลางคน. Thai script only."}
+
+
+def burmese_names(model: str, chars: list[dict], lang: str = "my") -> list[dict]:
+    """Make sure every character has a display name in the output language's script (the LLM often
+    returns pinyin/English). Names already in that script are never changed (cross-episode consistency)."""
+    todo = [c for c in chars if not _has_script(c.get("my", ""), lang)]
     if not todo:
         return chars
-    out = chat_json(model, "You transliterate Chinese drama character names into Burmese (Myanmar Unicode script).",
-                    "For each, give a short natural Burmese name: transliterate real names by sound "
-                    "(e.g. 林渊 -> လင်ယွမ်); translate descriptive labels (e.g. 年轻男子 -> လူငယ်လေး, 中年男子 -> "
-                    "လူလတ်ပိုင်း). Myanmar script only.\n" + json.dumps([{"zh": c["zh"], "hint": c.get("my", "")} for c in todo],
-                                                                        ensure_ascii=False) + "\nReturn JSON {names:[{zh,my}]}.",
-                    NAMES_SCHEMA, temperature=0.2)
-    got = {x["zh"]: normalize(x["my"]) for x in out.get("names", []) if _has_my(x.get("my", ""))}
+    out = chat_json(model, f"You name Chinese drama characters in {LANG_NAME[lang]}.",
+                    "For each, give a short natural name: transliterate real names by sound, translate descriptive "
+                    f"labels. Examples: {NAME_EXAMPLE[lang]}\n" + json.dumps([{"zh": c["zh"], "hint": c.get("my", "")}
+                                                                             for c in todo], ensure_ascii=False)
+                    + "\nReturn JSON {names:[{zh,my}]} (my = the name).", NAMES_SCHEMA, temperature=0.2)
+    got = {x["zh"]: norm_for(x["my"], lang) for x in out.get("names", []) if _has_script(x.get("my", ""), lang)}
     for c in todo:
         if c["zh"] in got:
             c["alias"] = c.get("my", "")
@@ -195,12 +218,13 @@ def _to_simplified(text: str) -> str:
         return text
 
 
-def apply_names(text: str, chars: list[dict]) -> str:
+def apply_names(text: str, chars: list[dict], lang: str = "my") -> str:
     """Force the fixed Burmese name wherever the LLM left a Chinese name (trad/simplified),
     its pinyin, or an English alias."""
     text = _to_simplified(text)
     import re as _re
-    text = _re.sub(r"[฀-๿]+", "", text)  # stray Thai glyphs the LLM sometimes mixes in
+    if lang != "th":
+        text = _re.sub(r"[฀-๿]+", "", text)  # stray Thai glyphs the LLM sometimes mixes in
     for c in sorted(chars, key=lambda c: -len(c.get("zh", ""))):
         if c.get("alias") and c.get("my"):
             text = text.replace(c["alias"], c["my"])
@@ -240,7 +264,7 @@ def write_recap(ctx: Context, mem: dict, rate_sps: float) -> dict:
              f"(~{per_beat / rate_sps:.0f} seconds spoken).\n"
              "2. Beat 1 is a HOOK: the most shocking/intriguing moment or question, so viewers keep watching within 3 seconds.\n"
              "3. Keep relationships, motivations, major turns and cause->effect clear.\n"
-             "4. Use the Burmese character names from the table EXACTLY, every time.\n"
+             "4. Use the character names from the table (the name after =>) EXACTLY, every time.\n"
              "5. source_ranges: 1-3 [start,end] second ranges from the event list that SHOW what this beat says "
              "(prefer visual events for silent moments).\n"
              "6. visual_query: a short ENGLISH description of what the footage should show (for image search).\n"
@@ -248,8 +272,7 @@ def write_recap(ctx: Context, mem: dict, rate_sps: float) -> dict:
              "8. importance 1-5.\n"
              "9. NEVER repeat a sentence or phrase. Every beat must add a NEW event and move the story forward.\n"
              "10. Say who did what to whom and why (e.g. 'X found out Y lied, so X ...'). Avoid vague verbs like 'said'.\n"
-             f"Style example ({lang}, tone only, do not copy content): "
-             "\"ဒီကောင်လေးက သူ့အဖေ ဘယ်သူလဲဆိုတာ မသိဘဲ ကြီးလာခဲ့တာ။ ဒါပေမဲ့ တစ်နေ့မှာတော့ ...\"")
+             f"Style example ({lang}, tone only, do not copy content): \"{STYLE_EXAMPLE[s.language]}\"")
     user = f"Characters:\n{names}\n\nStory summary: {mem['so_far']}\n\nEvents:\n{events}\n\n{rules}\n\nReturn JSON {{beats:[...]}}."
     ctx.progress(0.5, "Recap script အကြမ်း ရေးနေပါတယ်")
     draft = chat_json(model, system, user, BEATS_SCHEMA, temperature=0.7)["beats"]
@@ -258,7 +281,7 @@ def write_recap(ctx: Context, mem: dict, rate_sps: float) -> dict:
                    f"{json.dumps(draft, ensure_ascii=False)}\n\nReview the draft against this checklist and then return a "
                    "REVISED full beats list that fixes every problem:\n"
                    "- invented_events: anything not in the events list? remove it.\n"
-                   "- name_consistency: every character uses the exact Burmese name from the table?\n"
+                   "- name_consistency: every character uses the exact name from the table?\n"
                    f"- natural_spoken: does it sound like natural spoken {lang}? rewrite stiff/literal lines.\n"
                    "- hook_first_3s: is beat 1 a strong hook?\n"
                    "- cause_and_effect: is it clear why things happen?\n"
@@ -271,7 +294,7 @@ def write_recap(ctx: Context, mem: dict, rate_sps: float) -> dict:
     hooks_user = (f"Story summary: {mem['so_far']}\nEvents:\n{events}\nCharacters:\n{names}\n\n"
                   f"Write 3 DIFFERENT alternative opening hooks in natural spoken {lang} (each ~{per_beat} syllables), "
                   "each must make a viewer stop scrolling within 3 seconds and use only real events. "
-                  "Use the Burmese names exactly. Return JSON {hooks:[h1,h2,h3]}.")
+                  "Use the names from the table exactly. Return JSON {hooks:[h1,h2,h3]}.")
     hooks = chat_json(model, system, hooks_user, HOOKS_SCHEMA, temperature=0.9).get("hooks", [])[:3]
     unload(model)
     return {"draft": draft, "review": {"checklist": review.get("checklist"), "notes": review.get("notes")},
@@ -364,7 +387,7 @@ def stage_script(ctx: Context) -> dict[str, str]:
         raise RecapError("no_story", "ဗီဒီယိုထဲမှာ စကားပြော (သို့) စာတန်းထိုး မတွေ့ပါ။ အသံပါတဲ့ ဗီဒီယို သုံးပါ။")
     with gpu_lock(p, f"llm:{ctx.settings.llm_model}"):
         mem = build_story_memory(ctx, cues, shots, captions)
-        mem["characters"] = burmese_names(ctx.settings.llm_model, mem["characters"])
+        mem["characters"] = burmese_names(ctx.settings.llm_model, mem["characters"], ctx.settings.language)
         p.write_json("script/story_memory.json", mem)
         p.write_json("script/characters.json", mem["characters"])
         if ctx.settings.mode in ("pro", "subtitle"):
@@ -378,7 +401,8 @@ def stage_script(ctx: Context) -> dict[str, str]:
             out = write_recap(ctx, mem, rate)
             beats = []
             for i, b in enumerate(out["final"]):
-                text = apply_names(normalize(b.get("narration", "")), mem["characters"])
+                text = apply_names(norm_for(b.get("narration", ""), ctx.settings.language), mem["characters"],
+                                   ctx.settings.language)
                 if not text:
                     continue
                 beats.append({"id": i, "narration": text, "source_ranges": validate_ranges(b.get("source_ranges"), dur, shots),
@@ -411,7 +435,7 @@ def stage_script(ctx: Context) -> dict[str, str]:
                   f"(shot {b['candidates'][0]['shot'] if b['candidates'] else '-'})")
         p.write_json("script/draft.json", out["draft"])
         p.write_json("script/review.json", out["review"])
-        p.write_json("script/hooks.json", {"hooks": [normalize(h) for h in out["hooks"]],
+        p.write_json("script/hooks.json", {"hooks": [norm_for(h, ctx.settings.language) for h in out["hooks"]],
                                            "original_first_beat": beats[0]["narration"]})
     p.write_json("script/beats.json", beats)
     # series memory: share the character table with later episodes
@@ -470,12 +494,12 @@ def translate_lines(ctx: Context, cues: list[dict], mem: dict, batch: int = 25) 
         lines = "\n".join(f"{x['id']} ({x['max_duration']:.1f}s): {x['chinese']}" for x in part)
         user = (f"Names:\n{names}\nStory: {mem['so_far']}\nPrevious lines (context only):\n{ctxlines}\n\n"
                 f"Translate each line. The seconds in brackets is the max speaking time; keep each line short enough. "
-                f"speaker = Burmese name of who speaks if clear else ''.\n{lines}\n\nReturn JSON {{lines:[{{id,text,speaker}}]}}.")
+                f"speaker = name (from the table) of who speaks if clear else ''.\n{lines}\n\nReturn JSON {{lines:[{{id,text,speaker}}]}}.")
         out = chat_json(s.llm_model, system, user, TRANS_SCHEMA, temperature=0.4)
         got = {int(x["id"]): x for x in out.get("lines", []) if "id" in x}
         for x in part:
             g = got.get(x["id"], {})
-            x["burmese"] = normalize(g.get("text", ""))
+            x["burmese"] = norm_for(g.get("text", ""), s.language)
             x["speaker"] = g.get("speaker", "")
             x["narration"] = x["burmese"]
             x["voice_id"] = None
@@ -491,7 +515,7 @@ def shorten_line(model: str, language: str, chinese: str, current: str, seconds:
                     f"Original Chinese: {chinese}\nCurrent {lang}: {current}\nIt takes {actual:.1f}s to speak but must fit in "
                     f"{seconds:.1f}s. Rewrite it about {int(100 * seconds / actual * 0.9)}% as long. Return JSON {{text}}.",
                     SHORTEN_SCHEMA, temperature=0.3)
-    return normalize(out.get("text", current)) or current
+    return norm_for(out.get("text", current), language) or current
 
 
 def estimate_syllables(text: str) -> int:

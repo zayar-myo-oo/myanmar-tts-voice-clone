@@ -27,7 +27,7 @@ class CaptionStyle(BaseModel):
     box_color: str = "#000000AA"
     position: Literal["bottom", "middle", "top", "custom"] = "bottom"
     pos_pct: float = Field(0.86, ge=0.05, le=0.98)  # custom: vertical centre as fraction of height
-    width_pct: float = Field(1.0, ge=0.4, le=1.0)  # caption width; 1.0 = auto safe margins
+    width_pct: float = Field(1.0, ge=0.3, le=1.0)  # caption width; 1.0 = auto safe margins
     bold: bool = True
     burn: bool = True  # False: no burned captions (SRT still exported)
     margin_v_pct: float = 0.14  # distance from edge, fraction of height

@@ -101,7 +101,7 @@ details{margin-top:12px}details pre{background:var(--bg);border-radius:10px;padd
 <aside>
   <div class="logo"><i>DR</i><div><b>Drama Recap</b><small>Studio · local · free</small></div></div>
   <nav id="nav">
-    <a href="#/home" data-r="home">🏠 One Click AI</a><a href="#/studio" data-r="studio">🎬 Studio</a><a href="#/voiceover" data-r="voiceover">🎙️ Voiceover</a><a href="#/anim" data-r="anim">🎨 Animation</a>
+    <a href="#/home" data-r="home">🏠 One Click AI</a><a href="#/studio" data-r="studio">🎬 Studio</a><a href="#/voiceover" data-r="voiceover">🎙️ Voiceover</a><a href="#/voices" data-r="voices">🔊 Voices</a><a href="#/anim" data-r="anim">🎨 Animation</a>
     <a href="#/finder" data-r="finder">🔎 Source Finder</a><a href="#/library" data-r="library">📁 Library</a><a href="#/settings" data-r="settings">⚙️ Settings</a>
   </nav>
   <div class="sp"></div>
@@ -121,18 +121,23 @@ const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}
 const DEF={mode:"recap",aspect:"9:16",fit:"blur_fill",hd:true,mirror:false,zoom:1,target:180,audio:"remove_vocals",voice:"male_calm",speed:1,
   llm:"gemma4:26b",asr:"large-v3-turbo",hardsub:true,cap:{burn:true,font:"Noto Sans Myanmar",size:64,color:"#FFD400",outline_color:"#000000",outline:4,bold:true,box:false,position:"bottom",pos_pct:.86,max_chars_per_line:22,width_pct:1},
   wmOn:false,wmText:"",logoOn:false,logo:null,wmPos:"top_right",postKit:true,hashtags:"",fyp:true,tf:false,tfPreset:"custom",rights:"permission_unknown",owner:"",notify:false,autoDl:false,brandAll:false};
-let prefs={...DEF,...LS.get("prefs",{})};if(prefs.asr==="belle-zh"&&!LS.get("asrFix",0)){prefs.asr="large-v3-turbo";LS.set("asrFix",1)}prefs.cap={...DEF.cap,...(prefs.cap||{})};const save=()=>LS.set("prefs",prefs);
+let prefs={...DEF,...LS.get("prefs",{})};if(prefs.cap&&prefs.cap.width_pct<.4)prefs.cap.width_pct=.4;if(prefs.asr==="belle-zh"&&!LS.get("asrFix",0)){prefs.asr="large-v3-turbo";LS.set("asrFix",1)}prefs.cap={...DEF.cap,...(prefs.cap||{})};const save=()=>LS.set("prefs",prefs);
 let S={file:null,url:"",src:null,boxes:[],crop:null,tool:"edit",sel:-1,tab:"video",pid:null,timer:null,logOpen:false};
 try{const t=localStorage.getItem("theme");if(t)document.documentElement.dataset.theme=t}catch(e){}
-const VOICES=[{id:"male_calm",n:"အေးချမ်း",g:"ကျား"},{id:"male_deep",n:"သြဇာ",g:"ကျား"},{id:"female_warm",n:"နွေးထွေး",g:"မ"},{id:"edge_thiha",n:"Thiha",g:"ကျား · Microsoft ☁"},{id:"edge_nilar",n:"Nilar",g:"မ · Microsoft ☁"}];
+const VOICES=[{id:"male_calm",n:"အေးချမ်း",g:"ကျား",lang:"my",tier:"free_local"},{id:"male_deep",n:"သြဇာ",g:"ကျား",lang:"my",tier:"free_local"},{id:"female_warm",n:"နွေးထွေး",g:"မ",lang:"my",tier:"free_local"},
+ {id:"edge_thiha",n:"Thiha",g:"ကျား",lang:"my",tier:"free_online"},{id:"edge_nilar",n:"Nilar",g:"မ",lang:"my",tier:"free_online"},
+ ...[["andrew","Andrew","M"],["brian","Brian","M"],["guy","Guy","M"],["ryan","Ryan (UK)","M"],["ava","Ava","F"],["emma","Emma","F"],["jenny","Jenny","F"],["sonia","Sonia (UK)","F"]].map(([k,n,g])=>({id:"edge_en_"+k,n,g:g==="M"?"ကျား":"မ",lang:"en",tier:"free_online"})),
+ {id:"edge_th_niwat",n:"Niwat",g:"ကျား",lang:"th",tier:"free_online"},{id:"edge_th_ava",n:"Ava (multilingual)",g:"မ",lang:"th",tier:"free_online"}];
+const LANGS={my:"မြန်မာ",en:"English",th:"ไทย"};const TIER={free_local:"Free · offline",free_online:"Free · internet",paid:"Paid · API key"};
+const voicesFor=l=>VOICES.filter(v=>v.lang===l||v.lang==="any");
 let PROV=null,LLM_EXTRA=[];
 async function loadProv(){if(PROV)return PROV;PROV=await api("/api/providers").catch(()=>({}));
- (PROV.elevenlabs?.voices||[]).forEach(v=>{if(!VOICES.some(x=>x.id===v.id))VOICES.push({id:v.id,n:v.name,g:"ElevenLabs ☁"})});
+ (PROV.elevenlabs?.voices||[]).forEach(v=>{if(!VOICES.some(x=>x.id===v.id))VOICES.push({id:v.id,n:v.name,g:"ElevenLabs",lang:"any",tier:"paid"})});
  LLM_EXTRA=[...(PROV.claude?.models||[]).map(m=>["claude:"+m,"Script: Claude "+m+" ☁"]),...(PROV.openai?.models||[]).slice(0,25).map(m=>["oai:"+m,"Script: OpenAI "+m+" ☁"])];return PROV}
 const STEP_MY={import:"ဗီဒီယို ယူ",audio:"အသံ ထုတ်",separate:"အသံ ခွဲ",shots:"Scene ခွဲ",ocr:"စာတန်း ဖတ်",vision:"ပုံ နားလည်",transcribe:"စကား နားထောင်",script:"Script / ဘာသာပြန်",voice:"မြန်မာ အသံ",timeline:"Timeline",captions:"စာတန်းထိုး",render:"ဗီဒီယို ထုတ်",qc:"QC စစ်",rights:"Rights စစ်",export:"Post Kit"};
 // ------------------------------------------------------------ router
 function route(){const h=location.hash.replace(/^#\//,"")||"home";const [r,arg]=h.split("/");$$("#nav a").forEach(a=>a.classList.toggle("on",a.dataset.r===r||(r==="project"&&a.dataset.r==="library")));
-  clearInterval(S.timer);clearTimeout(S.timer);({home:Home,anim:Anim,finder:Finder,studio:Studio,voiceover:Voiceover,library:Library,settings:Settings,project:Project}[r]||Home)(arg)}
+  clearInterval(S.timer);clearTimeout(S.timer);({home:Home,voices:Voices,anim:Anim,finder:Finder,studio:Studio,voiceover:Voiceover,library:Library,settings:Settings,project:Project}[r]||Home)(arg)}
 addEventListener("hashchange",route);
 // ------------------------------------------------------------ STUDIO
 function Studio(){
@@ -180,7 +185,7 @@ function ovEvents(){const ov=$("#ov");let drag=null;
     if(S.tool==="blur"){S.boxes.push({x0:p.x,y0:p.y,x1:p.x,y1:p.y,strength:20});S.sel=S.boxes.length-1;drag={k:"new",p}}
     else if(S.tool==="crop"){S.crop={x0:p.x,y0:p.y,x1:p.x,y1:p.y};drag={k:"crop",p}}else{S.sel=-1;drawOv()}};
   ov.onpointermove=e=>{if(!drag)return;const p=pt(e);
-    if(drag.k==="capsz"){const c=prefs.cap;c.width_pct=Math.round(Math.min(1,Math.max(.3,drag.w0+2*(p.x-drag.p.x)))*100)/100;
+    if(drag.k==="capsz"){const c=prefs.cap;c.width_pct=Math.round(Math.min(1,Math.max(.4,drag.w0+2*(p.x-drag.p.x)))*100)/100;
       c.size=Math.round(Math.min(140,Math.max(24,drag.s0*(1+3*(p.y-drag.p.y)))));save();drawOv();return}
     if(drag.k==="cap"){prefs.cap.position="custom";prefs.cap.pos_pct=Math.min(.97,Math.max(.08,p.y+.02));save();drawOv();return}
     if(drag.k==="new"||drag.k==="crop"){const t=drag.k==="new"?S.boxes[S.sel]:S.crop;Object.assign(t,{x0:Math.min(drag.p.x,p.x),y0:Math.min(drag.p.y,p.y),x1:Math.max(drag.p.x,p.x),y1:Math.max(drag.p.y,p.y)})}
@@ -200,7 +205,8 @@ function bindSeg(id,fn){$$(`#${id} button`).forEach(b=>b.onclick=()=>{$$(`#${id}
 function bindSw(id,fn){const e=$("#"+id);if(e)e.onchange=()=>fn(e.checked)}
 function bindSl(id,fn,suf=""){const e=$("#"+id);if(e)e.oninput=()=>{$("#"+id+"V").textContent=e.value+suf;fn(+e.value)}}
 function panel(){const b=$("#pbody");if(!b)return;const c=prefs.cap,up=()=>{save();drawOv()};
- if(S.tab==="video"){b.innerHTML=`<div class="lbl">Mode</div><div class="modes" id="modes">
+ if(S.tab==="video"){b.innerHTML=`<div class="lbl">Output language (ထွက်မယ့် ဘာသာ)</div>${seg("olang",[["my","🇲🇲 မြန်မာ"],["en","🇬🇧 English"],["th","🇹🇭 ไทย"]],prefs.lang||"my")}
+   <div class="lbl">Mode</div><div class="modes" id="modes">
    ${[["recap","AI Recap","ဇာတ်လမ်းအကျဉ်း"],["pro","Pro Dub","မြန်မာလို ပြန်ပြော"],["subtitle","Subtitle","စာတန်းပဲ ထိုး"]].map(([v,t,s])=>`<div class="mode ${prefs.mode===v?"on":""}" data-v="${v}"><b>${t}</b><span>${s}</span></div>`).join("")}</div>
    <div class="note" style="background:var(--acc2);color:var(--fg);border-color:var(--line);margin-top:8px">${{
     recap:"<b>AI Recap</b> — ဗီဒီယိုတစ်ခုလုံးကို AI က ကြည့်ပြီး ဇာတ်လမ်းအကျဉ်း script ရေးပါတယ်။ အရေးကြီးတဲ့ scene တွေကိုပဲ ရွေးဖြတ်ပြီး မြန်မာ narrator အသံ + စာတန်းနဲ့ ထုတ်ပါတယ်။ ဗီဒီယို အရှည်ကို အောက်က slider နဲ့ သတ်မှတ်ပါ။",
@@ -221,19 +227,21 @@ function panel(){const b=$("#pbody");if(!b)return;const c=prefs.cap,up=()=>{save
    ${prefs.tf?`<select class="in" id="tfp" style="margin-top:6px">${[["custom","Custom"],["clean_drama","Clean Drama"],["cinematic_drama","Cinematic Drama"],["vertical_recap","Vertical Recap"],["subtitle_focus","Subtitle Focus"]].map(([v,l])=>`<option value="${v}" ${prefs.tfPreset===v?"selected":""}>${l}</option>`).join("")}</select>`:""}
    ${S.engine==="cloud"?`<div class="lbl">AI Models</div><p class="mut">☁ Cloud mode ဖွင့်ထားပါတယ် — Settings → Cloud / API Key မှာ ပြောင်းပါ</p>`:""}<div class="${S.engine==="cloud"?"hide":""}"><div class="lbl">AI Models</div><select class="in" id="llm">${[["gemma4:26b","Script: အကောင်းဆုံး (gemma4 26b)"],["gemma4:12b","Script: အလယ်အလတ် (12b)"],["gemma4:e4b","Script: အမြန် (e4b)"],...LLM_EXTRA].map(([v,l])=>`<option value="${v}" ${prefs.llm===v?"selected":""}>${l}</option>`).join("")}</select>
    <select class="in" id="asr" style="margin-top:6px">${[["large-v3-turbo","နားထောင်: Whisper turbo (အကောင်းဆုံး)"],["large-v3","နားထောင်: Whisper large-v3 (နှေး)"],["belle-zh","နားထောင်: Belle 中文 (စမ်းသပ်)"]].map(([v,l])=>`<option value="${v}" ${prefs.asr===v?"selected":""}>${l}</option>`).join("")}</select></div>`;
+  bindSeg("olang",v=>{prefs.lang=v;const vs=voicesFor(v);if(!vs.some(x=>x.id===prefs.voice))prefs.voice=(vs[0]||{}).id;
+   if(v!=="my"&&prefs.cap.font==="Noto Sans Myanmar")prefs.cap.font=v==="th"?"Noto Sans Thai":"Noto Sans";if(v==="my"&&prefs.cap.font!=="Padauk")prefs.cap.font="Noto Sans Myanmar";up();toast(LANGS[v]+" နဲ့ ထုတ်ပါမယ် — အသံ: "+(VOICES.find(x=>x.id===prefs.voice)||{}).n)});
   $$("#modes .mode").forEach(m=>m.onclick=()=>{prefs.mode=m.dataset.v;up();panel()});bindSl("tgt",v=>{prefs.target=v;up()},"s");bindSeg("tlen",v=>{prefs.tlen=v;if(v!=="auto")prefs.target=+v;up();panel()});$$("input[name=aud]").forEach(r=>r.onchange=()=>{prefs.audio=r.value;up()});
   bindSeg("asp",v=>{prefs.aspect=v;up()});bindSw("tight",v=>{prefs.tight=v;up()});bindSeg("fit",v=>{prefs.fit=v;up()});bindSw("hd",v=>{prefs.hd=v;up()});bindSw("mir",v=>{prefs.mirror=v;up()});
   bindSl("zm",v=>{prefs.zoom=v/100;up()},"%");bindSw("tfOn",v=>{prefs.tf=v;up();panel()});const tp=$("#tfp");if(tp)tp.onchange=()=>{prefs.tfPreset=tp.value;up()};
   $("#llm").onchange=e=>{prefs.llm=e.target.value;up()};$("#asr").onchange=e=>{prefs.asr=e.target.value;up()};const cc=$("#clrCrop");if(cc)cc.onclick=e=>{e.preventDefault();S.crop=null;drawOv();panel()}}
- else if(S.tab==="voice"){b.innerHTML=`<div class="lbl">Voice <span class="mut">· ${VOICES.length} မြန်မာ voices</span></div>${VOICES.map(v=>`<div class="voice ${prefs.voice===v.id?"on":""}" data-v="${v.id}"><span class="av">${v.n[0]}</span><div><b>${v.n}</b><div class="mut">${v.g} · ${v.id.startsWith("edge_")?"online, အသံ သဘာဝအကျဆုံး":"local, offline"}</div></div><button class="pl" data-p="${v.id}">▶</button></div>`).join("")}
+ else if(S.tab==="voice"){const L=prefs.lang||"my";b.innerHTML=`<div class="lbl">Voice <span class="mut">· ${LANGS[L]} · ${voicesFor(L).length} voices · <a href="#/voices">အားလုံး ကြည့်</a></span></div>${voicesFor(L).map(v=>`<div class="voice ${prefs.voice===v.id?"on":""}" data-v="${v.id}"><span class="av">${v.n[0]}</span><div><b>${v.n}</b><div class="mut">${v.g} · ${TIER[v.tier]||""}</div></div><button class="pl" data-p="${v.id}">▶</button></div>`).join("")}
    <div class="lbl">Speed</div>${sl("spd",-40,60,5,Math.round((prefs.speed-1)*100),"%")}<p class="mut">${prefs.mode==="subtitle"?"Subtitle mode မှာ အသံ မထုတ်ပါ။":"Pro mode မှာ နေရာမဆံ့ရင် အလိုလို အမြန်နှုန်း ညှိပါတယ်။"}</p>`;
   $$(".voice").forEach(x=>x.onclick=e=>{if(e.target.closest(".pl"))return;prefs.voice=x.dataset.v;up();panel()});
-  $$(".pl").forEach(p=>p.onclick=()=>{p.textContent="…";const a=new Audio(`/api/voices/${p.dataset.p}/preview?speed=${prefs.speed}`);a.onplaying=()=>p.textContent="■";a.onended=a.onerror=()=>p.textContent="▶";a.play()});
+  $$(".pl").forEach(p=>p.onclick=()=>{p.textContent="…";const a=new Audio(`/api/voices/${encodeURIComponent(p.dataset.p)}/preview?speed=${prefs.speed}&lang=${prefs.lang||"my"}`);a.onplaying=()=>p.textContent="■";a.onended=a.onerror=()=>p.textContent="▶";a.play()});
   bindSl("spd",v=>{prefs.speed=1+v/100;up()},"%")}
  else if(S.tab==="captions"){const cols=["#FFFFFF","#FFD400","#7FDBFF","#FF8FB1","#8BE38B","#FF9F43"];
   b.innerHTML=`<div class="row"><div><b>${S.boxes.length} blur box</b><small>ဗီဒီယိုပေါ် ဆွဲပါ၊ ဆွဲရွှေ့ပါ</small></div><button class="btn ghost" id="addB">＋ Add</button></div>
    ${sw("hs",prefs.hardsub,"မူရင်း စာတန်း အလိုလို ဖုံး","OCR နဲ့ ရှာပြီး blur လုပ်ပါတယ်")}${sw("burn",c.burn,"Captions (မြန်မာစာ ထိုး)")}
-   <div class="lbl">Font</div><select class="in" id="font">${["Noto Sans Myanmar","Padauk"].map(f=>`<option ${c.font===f?"selected":""}>${f}</option>`).join("")}</select>
+   <div class="lbl">Font</div><select class="in" id="font">${["Noto Sans Myanmar","Padauk","Noto Sans","Noto Sans Thai"].map(f=>`<option ${c.font===f?"selected":""}>${f}</option>`).join("")}</select>
    <div class="lbl">Text size</div>${sl("csz",30,120,2,c.size,"px")}
    <div class="lbl">Text colour</div><div class="colors">${cols.map(x=>`<i data-c="${x}" class="${c.color===x?"on":""}" style="background:${x}"></i>`).join("")}<input type="color" id="ccol" value="${c.color.slice(0,7)}" style="width:32px;height:30px;border:0;background:none"></div>
    <div class="row"><b>Outline colour</b><input type="color" id="ocol" value="${c.outline_color.slice(0,7)}"></div>
@@ -266,7 +274,7 @@ function bar(){const b=$("#sbar");if(!b)return;const has=S.src;
   <span class="chip">${prefs.cap.burn?"Captions on":"Captions off"}</span>${S.crop?`<span class="chip">Crop</span>`:""}${prefs.tf?`<span class="chip">Transform</span>`:""}<span style="flex:1"></span>
   <span id="startMsg" class="mut"></span><button class="btn" id="go" ${has?"":"disabled"}>▶ Start</button>`;$("#go").onclick=start}
 function buildSettings(){const p=prefs,wm=(p.wmOn&&p.wmText)||(p.logoOn&&p.logo);const tfOn=p.tf||!!wm||p.fit==="smart"||p.aspect==="original"||(p.border||"none")!=="none";
- return{mode:p.mode,aspect:p.aspect==="original"?"9:16":p.aspect,reframe:p.fit==="center_crop"?"center_crop":"blur_fill",proxy:!p.hd,mirror:p.mirror,zoom:p.zoom,
+ return{language:p.lang||"my",mode:p.mode,aspect:p.aspect==="original"?"9:16":p.aspect,reframe:p.fit==="center_crop"?"center_crop":"blur_fill",proxy:!p.hd,mirror:p.mirror,zoom:p.zoom,
   target_seconds:p.tlen==="auto"?Math.min(600,Math.max(60,Math.round((S.dur||600)*.35))):p.target,original_audio:p.mode==="subtitle"?"keep_all":p.audio,voice_id:p.voice,voice_speed:Math.round(p.speed*100)/100,llm_model:p.llm,whisper_model:p.asr,
   hardsub:p.hardsub?"blur":"keep",caption:{...p.cap},blur_boxes:S.boxes.map(b=>({...b})),crop_box:S.crop,post_kit:p.postKit,tighten_gaps:!!p.tight,hashtags:p.hashtags,add_fyp:p.fyp,
   transform:{enabled:tfOn,preset:p.tf?p.tfPreset:"custom",smart_reframe:p.fit==="smart",aspect_original:p.aspect==="original",subtitle_blur:p.hardsub,
@@ -309,7 +317,7 @@ function renderResult(d){const has=r=>d.files.includes(r),v=has("export/final.mp
   <div class="row" style="margin-top:10px"><div><b>✂ Video Splitter</b><small>TikTok အတွက် Part 1, 2, 3… ခွဲ</small></div>
    <div style="display:flex;gap:6px;align-items:center"><select class="in" id="splitS" style="width:auto">${[[60,"1 မိနစ်"],[90,"1.5 မိနစ်"],[120,"2 မိနစ်"],[180,"3 မိနစ်"]].map(([v,l])=>`<option value="${v}">${l}</option>`).join("")}</select><button class="btn ghost" id="splitGo">ခွဲမယ်</button></div></div><div id="splitR"></div>
   ${has("export/compare.png")?`<div class="lbl">မူရင်း / ပြင်ပြီး</div><img src="${F("export/compare.png")}" style="width:100%;border-radius:10px">`:""}
-  <div class="lbl">Script ပြင်ရန် <span class="mut">(သိမ်းရင် အဲ့အပိုင်းပဲ ပြန်လုပ်)</span></div>${(d.beats||[]).map(x=>`<div class="beat"><div class="mut">#${x.id} · ${(+x.out_start||0).toFixed(1)}s ${x.chinese?"· "+esc(x.chinese):""}</div><textarea id="bt${x.id}">${esc(x.narration||x.burmese||"")}</textarea><button class="btn ghost" style="padding:4px 12px" onclick="saveBeat(${x.id})">သိမ်း</button></div>`).join("")}</div>
+  <div class="lbl">Script ပြင်ရန် <span class="mut">(သိမ်းရင် အဲ့အပိုင်းပဲ ပြန်လုပ်)</span></div>${(d.beats||[]).map(x=>{const nm=(q?.number_mismatch||[]).find(m=>m.id===x.id);return `<div class="beat"${nm?' style="border-left:3px solid var(--warn);padding-left:8px"':""}><div class="mut">#${x.id} · ${(+x.out_start||0).toFixed(1)}s ${x.chinese?"· "+esc(x.chinese):""}</div>${nm?`<div class="warn" style="font-size:12px">⚠ ဂဏန်း မကိုက်ပါ — မူရင်း: ${nm.source.join(", ")||"မရှိ"} · ဘာသာပြန်: ${nm.translation.join(", ")}</div>`:""}<textarea id="bt${x.id}">${esc(x.narration||x.burmese||"")}</textarea><button class="btn ghost" style="padding:4px 12px" onclick="saveBeat(${x.id})">သိမ်း</button></div>`}).join("")}</div>
   <div style="display:flex;flex-direction:column;gap:14px">${pk?`<div class="card" style="padding:14px"><b>Post Kit</b><p style="margin:8px 0"><b>${esc(pk.title)}</b></p><p style="margin:0 0 8px">${esc(pk.caption)}</p><p class="mut">${esc((pk.hashtags||[]).join(" "))}</p>
    <button class="btn ghost" id="cpk">Copy</button></div>`:""}
   ${q?`<div class="card" style="padding:14px"><b class="${q.passed?"ok":"warn"}">${q.passed?"✓ QC pass":"⚠ QC သတိပေးချက်"}</b>${(q.warnings_my||[]).map(w=>`<p class="warn" style="margin:6px 0">• ${esc(w)}</p>`).join("")}
@@ -440,6 +448,27 @@ async function AnimNew(){const keys=await api("/api/keys").catch(()=>({}));const
  $("#nGo").onclick=async()=>{const lines=parse();if(lines.length<3)return toast("Script အနည်းဆုံး ၃ ကြောင်း ရေးပါ");drawV();$("#nGo").disabled=true;$("#nMsg").textContent="စနေပါတယ်…";
   try{await api("/api/anim/create",J("POST",{key:$("#nKey").value.trim(),title:$("#nTitle").value.trim(),template:tpl,model,lines,voices,notes:$("#nNotes").value,render:$("#nRender").checked}));
    location.hash="#/anim/"+$("#nKey").value.trim()}catch(e){$("#nMsg").innerHTML=`<span class="err">${esc(e.message)}</span>`;$("#nGo").disabled=false}};drawV()}
+
+// ------------------------------------------------------------ VOICES catalogue (free vs paid, by language)
+async function Voices(){await loadProv();const P=PROV||{};const el=P.elevenlabs||{};
+ const card=v=>`<div class="voice" style="cursor:default"><span class="av">${esc(v.n[0])}</span><div style="flex:1"><b>${esc(v.n)}</b><div class="mut">${esc(v.g)} · ${TIER[v.tier]}</div></div><button class="pl" data-p="${esc(v.id)}" data-l="${v.lang==="any"?"":v.lang}">▶</button></div>`;
+ const sec=(l)=>{const vs=VOICES.filter(v=>v.lang===l);const free=vs.filter(v=>v.tier!=="paid");
+  return `<div class="card" style="padding:16px"><h2 style="margin:0 0 6px;font-size:17px">${{my:"🇲🇲",en:"🇬🇧",th:"🇹🇭"}[l]} ${LANGS[l]}</h2>
+   <div class="lbl">🆓 Free</div>${free.map(card).join("")||'<p class="mut">မရှိ</p>'}
+   <div class="lbl">💳 Paid (API key လို)</div>${el.set?(el.voices||[]).slice(0,6).map(v=>card({id:v.id,n:v.name,g:"ElevenLabs",tier:"paid",lang:"any"})).join("")+((el.voices||[]).length>6?`<p class="mut">+ ${(el.voices||[]).length-6} more ElevenLabs voices</p>`:""):
+    `<p class="mut">🔒 ElevenLabs voices — <a href="#/settings" onclick="setTab='apikey'">API key ထည့်ပါ</a></p>`}</div>`};
+ const elModels=(el.models||[]);
+ $("#view").innerHTML=`<div class="top"><h1>🔊 Voices</h1><span class="sub">ဘာသာ အလိုက် · Free နဲ့ ပိုက်ဆံ ပေးရတာ</span></div>
+ <div style="padding:0 22px 22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">${["my","en","th"].map(sec).join("")}</div>
+ <div class="card" style="margin:0 22px 22px;padding:16px"><h2 style="margin:0 0 6px;font-size:17px">💳 ဝယ်သုံးရတဲ့ အသံ (Paid)</h2>
+  <table style="width:100%;font-size:13px;border-collapse:collapse">
+   <tr style="text-align:left;color:var(--mut)"><th>Service</th><th>ဘာသာ</th><th>လိုအပ်တာ</th><th>App ထဲမှာ</th></tr>
+   <tr><td><b>ElevenLabs</b></td><td>Eleven v4: 90+ ဘာသာ (မြန်မာ · English · ไทย ပါ) · Eleven v3: 74 ဘာသာ</td><td>ElevenLabs API key + plan (စာလုံးရေနဲ့ တွက်)</td><td>${el.set?'<span class="tag ok">✓ ချိတ်ပြီး</span>':'<span class="tag">Key မထည့်ရသေး</span>'}</td></tr>
+  </table>
+  <div class="lbl">ElevenLabs model (မင်းရဲ့ account ကနေ)</div>${el.set?(elModels.length?`<table style="width:100%;font-size:13px">${elModels.map(m=>`<tr><td>${esc(m.name)}</td><td><code>${esc(m.id)}</code></td><td>${m.burmese?"🇲🇲 မြန်မာ ပါ":'<span class="mut">မြန်မာ မပါ</span>'}</td><td class="mut">ဘာသာ ${m.languages}</td></tr>`).join("")}</table>`:'<p class="mut">Model စာရင်း ယူလို့ မရပါ</p>'):
+   `<p class="mut">🔒 <a href="#/settings" onclick="setTab='apikey'">Settings → ☁ Cloud / API Key → ⑥ ElevenLabs</a> မှာ key ထည့်ရင် မင်းရဲ့ account မှာ ရနိုင်တဲ့ model တွေ (🇲🇲 မြန်မာ ပါ/မပါ) ဒီမှာ ပေါ်ပါမယ်။</p>`}
+  <p class="mut">Free voices: Nara Mini (offline, မြန်မာ) · Microsoft neural voices (internet လို၊ key မလို) — ကုန်ကျစရိတ် မရှိပါ။</p></div>`;
+ $$("#view .pl").forEach(p=>p.onclick=()=>{p.textContent="…";const a=new Audio(`/api/voices/${encodeURIComponent(p.dataset.p)}/preview?lang=${p.dataset.l||"my"}`);a.onplaying=()=>p.textContent="■";a.onended=a.onerror=()=>p.textContent="▶";a.play()})}
 // ------------------------------------------------------------ LIBRARY
 async function Library(){$("#view").innerHTML=`<div class="top"><h1>Library</h1><span class="sub">ဒီကွန်ပျူတာထဲက project အားလုံး</span></div><div class="lib" id="lib"></div>`;
  const load=async()=>{const l=await api("/api/projects").catch(()=>[]);const el=$("#lib");if(!el)return;

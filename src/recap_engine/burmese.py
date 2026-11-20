@@ -66,6 +66,13 @@ def zawgyi_to_unicode(text: str) -> str:
     return s
 
 
+def norm_for(text: str, lang: str) -> str:
+    """Burmese gets Zawgyi repair + Myanmar normalisation; other languages only NFC + spaces."""
+    if lang == "my":
+        return normalize(text)
+    return re.sub(r"[ \t]+", " ", unicodedata.normalize("NFC", text or "")).strip()
+
+
 def normalize(text: str) -> str:
     if is_zawgyi(text):
         text = zawgyi_to_unicode(text)
@@ -104,13 +111,30 @@ def apply_pronunciations(text: str, entries: dict[str, str]) -> str:
 
 
 # ---------------------------------------------------------------- phrase splitting
-SENT_END = re.compile(r"(?<=[။!?])\s*")
+SENT_END = re.compile(r"(?<=[။!?])\s*|(?<=[.;])\s+")
 PHRASE_END = re.compile(r"(?<=[၊,])\s*|\s+")
 # Burmese syllable boundary: before a consonant that is not followed by asat/virama (stacked).
 SYL = re.compile(r"(?<![္])(?=[က-ဪဿ၌-၏](?![်္]))")
 
 
 def syllables(text: str) -> list[str]:
+    if any("\u0e00" <= ch <= "\u0e7f" for ch in text):  # Thai has no spaces: split into dictionary words
+        try:
+            from pythainlp.tokenize import word_tokenize
+            return [w for w in word_tokenize(text, engine="newmm") if w]
+        except ImportError:
+            pass
+    if not any("\u1000" <= ch <= "\u109f" for ch in text):  # Thai / Latin: grapheme-ish units
+        units: list[str] = []
+        lead = False  # Thai leading vowel waiting for its consonant
+        for ch in text:
+            follow = unicodedata.category(ch) in ("Mn", "Mc") or ch in "ะาำๅๆ"  # ะ า ำ ๅ ๆ
+            if units and (follow or lead):
+                units[-1] += ch
+            else:
+                units.append(ch)
+            lead = ch in "เแโใไ"  # เ แ โ ใ ไ attach to the next consonant
+        return units
     parts = [x for x in SYL.split(text) if x]
     return parts
 

@@ -1,4 +1,4 @@
-# Drama Recap Studio
+﻿# Drama Recap Studio
 
 ကိုယ့်ကွန်ပျူတာထဲမှာပဲ (local, free) တရုတ် drama တွေကို **မြန်မာ recap / dub / စာတန်းထိုး** လုပ်ပေးတဲ့ web app ပါ။
 Optional အနေနဲ့ ကိုယ်ပိုင် API key (Claude, OpenAI, ElevenLabs, AssemblyAI, OpenRouter) တွေနဲ့လည်း သုံးလို့ရပါတယ်။
@@ -35,6 +35,8 @@ Optional face model for smart reframing: put `face_detection_yunet_2023mar.onnx`
 ([opencv_zoo](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet), MIT) in `models/`.
 
 ## Run
+**Desktop app (recommended):** run once `powershell -ExecutionPolicy Bypass -File scripts\install_desktop_shortcuts.ps1`, then open **Drama Recap Studio** from the Desktop or Start Menu. It opens in its own window (Edge WebView2), starts the server and Ollama itself, and stops the server when you close it.
+
 Double-click **`Drama Recap Studio.bat`** (starts Ollama + the server and opens the app), or:
 ```powershell
 .venv-recap\Scripts\python -m recap_engine.server

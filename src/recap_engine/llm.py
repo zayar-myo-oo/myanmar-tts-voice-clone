@@ -46,11 +46,43 @@ def _post(path: str, payload: dict) -> dict:
             model, tried = nxt, 0
 
 
+_OLLAMA_START = {"tried": 0.0}
+
+
+def start_ollama() -> bool:
+    """Start the Ollama app/server if it isn't running (at most once a minute); True when it answers."""
+    import subprocess
+    if time.time() - _OLLAMA_START["tried"] < 60:
+        return False
+    _OLLAMA_START["tried"] = time.time()
+    base = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Ollama")
+    for exe, args in ((os.path.join(base, "ollama app.exe"), []), (os.path.join(base, "ollama.exe"), ["serve"]),
+                      ("ollama", ["serve"])):
+        try:
+            subprocess.Popen([exe, *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            break
+        except OSError:
+            continue
+    for _ in range(30):
+        time.sleep(1)
+        try:
+            if httpx.get(OLLAMA + "/api/tags", timeout=2).status_code == 200:
+                list_models.cache_clear()
+                return True
+        except httpx.HTTPError:
+            pass
+    return False
+
+
 def _post_once(path: str, payload: dict) -> dict:
     try:
         r = httpx.post(OLLAMA + path, json=payload, timeout=TIMEOUT)
     except httpx.ConnectError as e:
-        raise RecapError("missing_model", "Ollama မဖွင့်ထားပါ။ Ollama app ကို ဖွင့်ပြီး Retry လုပ်ပါ။") from e
+        if start_ollama():  # it was just closed: start it and try again
+            return _post_once(path, payload)
+        raise RecapError("missing_model", "Ollama မဖွင့်ထားပါ (အလိုလို ဖွင့်ကြည့်လို့လည်း မရပါ)။ Ollama ကို "
+                                          "install / ဖွင့်ပြီး Retry လုပ်ပါ။") from e
     if r.status_code == 404:
         raise RecapError("missing_model", f"Ollama model '{payload.get('model')}' မရှိပါ။ "
                          f"Model Manager မှာ (သို့) `ollama pull {payload.get('model')}` နဲ့ ဒေါင်းပါ။", r.text)

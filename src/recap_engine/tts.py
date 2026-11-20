@@ -20,6 +20,9 @@ from .pipeline import Context
 
 REPO = Path(__file__).resolve().parents[2]
 RATE_FILE = REPO / "config" / "recap_voice_rates.json"
+CALIBRATION_EN = ("Today's story is a really interesting one. Let's see how it all began, "
+                  "and what happened in the end.")
+CALIBRATION_TH = "เรื่องที่เราจะเล่าวันนี้น่าสนใจมาก มาดูกันว่าทุกอย่างเริ่มต้นอย่างไร และสุดท้ายเกิดอะไรขึ้น"
 CALIBRATION_TEXT = ("ဒီနေ့ ကျွန်တော်တို့ ပြောပြမယ့် ဇာတ်လမ်းကတော့ အရမ်းကို စိတ်ဝင်စားဖို့ ကောင်းပါတယ်။ "
                     "သူမဟာ သူ့ခင်ပွန်းရဲ့ လျှို့ဝှက်ချက်ကို သိသွားတဲ့အခါ ဘာလုပ်မလဲ။")
 VOICE_PY = os.environ.get("RECAP_TTS_PYTHON", str(REPO / ".venv-nara" / "Scripts" / "python.exe"))
@@ -110,7 +113,16 @@ class TTSClient:
 
 
 # Microsoft neural Burmese voices (online, free, no key) via edge-tts
-EDGE_VOICES = {"edge_thiha": "my-MM-ThihaNeural", "edge_nilar": "my-MM-NilarNeural"}
+EDGE_VOICES = {"edge_thiha": "my-MM-ThihaNeural", "edge_nilar": "my-MM-NilarNeural",
+               # English (free)
+               "edge_en_andrew": "en-US-AndrewNeural", "edge_en_brian": "en-US-BrianNeural",
+               "edge_en_guy": "en-US-GuyNeural", "edge_en_ryan": "en-GB-RyanNeural",
+               "edge_en_ava": "en-US-AvaNeural", "edge_en_emma": "en-US-EmmaNeural",
+               "edge_en_jenny": "en-US-JennyNeural", "edge_en_sonia": "en-GB-SoniaNeural",
+               # Thai (free)
+               "edge_th_niwat": "th-TH-NiwatNeural", "edge_th_premwadee": "th-TH-PremwadeeNeural",
+               # Premwadee returns no audio (Microsoft side, 2026-11); multilingual Ava reads Thai well
+               "edge_th_ava": "en-US-AvaMultilingualNeural"}
 
 
 def edge_synth(text: str, voice_id: str, out: Path, speed: float = 1.0) -> float:
@@ -127,7 +139,7 @@ def edge_synth(text: str, voice_id: str, out: Path, speed: float = 1.0) -> float
                 break
             except Exception as e:  # noqa: BLE001  network hiccup
                 if attempt == 2:
-                    raise RecapError("tts_failed", "Microsoft အသံ (Thiha/Nilar) ထုတ်လို့ မရပါ။ Internet စစ်ပါ (သို့) "
+                    raise RecapError("tts_failed", "Microsoft အသံ ထုတ်လို့ မရပါ။ Internet စစ်ပါ (သို့) "
                                                    "local voice ကို ရွေးပါ။", str(e)) from e
         ff_run([ffmpeg_bin(), "-y", "-v", "error", "-i", str(mp3), "-ar", "24000", "-ac", "1", str(out)])
     return audio_duration(out)
@@ -148,6 +160,8 @@ def synth_any(text: str, voice_id: str, out: Path, speed: float = 1.0) -> float:
 
 
 def prepare_text(text: str) -> str:
+    if not any("\u1000" <= ch <= "\u109f" for ch in text):  # English / Thai: no Burmese clean-up
+        return " ".join(text.split())
     return apply_pronunciations(normalize(text), load_pronunciations())
 
 
@@ -208,8 +222,10 @@ def speech_rate(voice_id: str) -> float:
         return float(rates[voice_id])
     tmp = REPO / "outputs" / "_rate"
     tmp.mkdir(parents=True, exist_ok=True)
-    secs = synth_any(prepare_text(CALIBRATION_TEXT), voice_id, tmp / f"{voice_id}.wav")
-    rate = estimate_syllables(CALIBRATION_TEXT) / max(0.5, secs)
+    # calibrate in the language the voice actually speaks (an English/Thai voice can't read Burmese)
+    text = {"edge_en_": CALIBRATION_EN, "edge_th_": CALIBRATION_TH}.get(voice_id[:8], CALIBRATION_TEXT)
+    secs = synth_any(prepare_text(text), voice_id, tmp / f"{voice_id.replace(':', '_')}.wav")
+    rate = estimate_syllables(text) / max(0.5, secs)
     rates[voice_id] = round(rate, 3)
     RATE_FILE.parent.mkdir(parents=True, exist_ok=True)
     RATE_FILE.write_text(json.dumps(rates, indent=2), "utf-8")
