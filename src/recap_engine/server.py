@@ -243,6 +243,9 @@ def new_project(settings: str = Form("{}"), url: str = Form(""), title: str = Fo
                 shutil.copyfileobj(file.file, f, 8 << 20)
         elif not url.strip():
             raise HTTPException(400, "ဗီဒီယိုဖိုင် သို့မဟုတ် URL ထည့်ပါ။")
+        else:  # a pasted share text (RedNote / Douyin) -> its link; xhslink short links -> the note page
+            from .importer import normalize_url
+            url = normalize_url(url)
         p = api.create_project(url=url.strip() or None, file=src, settings=s, projects_root=ROOT,
                                title=title or (src.stem if src else ""))
     except BaseException:
@@ -279,6 +282,68 @@ def run(pid: str, body: dict | None = None) -> dict:
 def cancel(pid: str) -> dict:
     _project(pid)
     return {"ok": jobs.cancel(pid)}
+
+
+TRASH = ROOT / "_trash"
+
+
+@app.delete("/api/projects/{pid}")
+def delete_project(pid: str) -> dict:
+    """Move a project to projects/_trash (restorable from Library -> Trash; emptying the trash is permanent)."""
+    p = _project(pid)
+    j = jobs.public(pid)
+    if j and j.get("state") in ("running", "queued"):
+        raise HTTPException(409, "အလုပ်လုပ်နေတုန်းမို့ မဖျက်နိုင်ပါ — အရင် ရပ်ပါ။")
+    TRASH.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(p.root), str(TRASH / p.root.name))
+    jobs.jobs.pop(pid, None)
+    return {"ok": True}
+
+
+@app.get("/api/trash")
+def trash_list() -> list[dict]:
+    return api.list_projects(TRASH) if TRASH.exists() else []
+
+
+@app.post("/api/trash/{pid}/restore")
+def trash_restore(pid: str) -> dict:
+    src = (TRASH / pid).resolve()
+    if TRASH.resolve() not in src.parents or not src.is_dir() or (ROOT / pid).exists():
+        raise HTTPException(404)
+    shutil.move(str(src), str(ROOT / pid))
+    return {"ok": True}
+
+
+@app.delete("/api/trash")
+def trash_empty() -> dict:
+    n = 0
+    if TRASH.exists():
+        for d in TRASH.iterdir():
+            if d.is_dir():
+                shutil.rmtree(d, ignore_errors=True)
+                n += 1
+    return {"deleted": n}
+
+
+@app.get("/api/projects/{pid}/thumb")
+def project_thumb(pid: str):
+    """Clean card thumbnail: one frame of the source (no burned captions/titles), cached as a small jpg."""
+    from .media import ffmpeg_bin
+    p = _project(pid)
+    out = p.path("analysis", "thumb_card.jpg")
+    if not out.exists():
+        src = p.path("source", "video.mp4")
+        dur = (p.manifest.source.get("probe") or {}).get("duration") or 10
+        if not src.exists():
+            raise HTTPException(404)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        import subprocess
+        subprocess.run([ffmpeg_bin(), "-v", "error", "-y", "-ss", f"{min(dur * 0.25, 8):.2f}", "-i", str(src),
+                        "-frames:v", "1", "-vf", "scale=480:-2", "-q:v", "4", str(out)],
+                       capture_output=True, timeout=60, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if not out.exists():
+            raise HTTPException(404)
+    return FileResponse(out, headers={"Cache-Control": "max-age=86400"})
 
 
 @app.patch("/api/projects/{pid}/settings")
@@ -481,7 +546,8 @@ def open_folder(pid: str) -> dict:
 
 # ------------------------------------------------------------------ engine mode (local GPU / cloud)
 ENGINE_FILE = Path(__file__).resolve().parents[2] / "config" / "app_settings.json"
-ENGINE_DEFAULT = {"mode": "local", "llm": "google/gemini-2.5-flash", "vision": "google/gemini-2.5-flash", "el_model": ""}
+ENGINE_DEFAULT = {"mode": "local", "llm": "google/gemini-2.5-flash", "vision": "google/gemini-2.5-flash", "el_model": "",
+                  "cookies_browser": ""}
 
 
 def engine() -> dict:
@@ -557,22 +623,122 @@ def source_finder(body: dict) -> dict:
 
 @app.post("/api/download")
 def download(body: dict) -> dict:
-    """YouTube / Bilibili / Douyin downloader (best <=1080p mp4)."""
+    """YouTube / Bilibili / Douyin / RedNote (小红书) downloader. Accepts a link or a pasted share text."""
     import subprocess
     import sys
-    url = (body.get("url") or "").strip()
+
+    from .importer import COOKIE_BROWSERS, UA, _ydl_error_my, default_cookies_browser, format_for, normalize_url
+    url = normalize_url(body.get("text") or body.get("url") or "")
     if not url.startswith(("http://", "https://")):
-        raise HTTPException(400, "URL မှန်မှန် ထည့်ပါ။")
+        raise HTTPException(400, "URL မှန်မှန် ထည့်ပါ (share စာသားတစ်ခုလုံး paste လုပ်လည်း ရပါတယ်)။")
+    cb = body.get("cookies_browser")
+    cb = cb if cb in COOKIE_BROWSERS else (None if cb == "none" else default_cookies_browser())
     DOWNLOADS.mkdir(parents=True, exist_ok=True)
-    r = subprocess.run([sys.executable, "-m", "yt_dlp", "-f", "bv*[height<=1080]+ba/b[height<=1080]/b",
-                        "--merge-output-format", "mp4", "--no-playlist", "--restrict-filenames",
-                        "-o", str(DOWNLOADS / "%(title).80s-%(id)s.%(ext)s"), "--print", "after_move:filepath", url],
-                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=3600)
+    cmd = [sys.executable, "-m", "yt_dlp", "-f", format_for(url), "--merge-output-format", "mp4",
+           "--no-playlist", "--windows-filenames", "--user-agent", UA,
+           "--write-thumbnail", "--convert-thumbnails", "jpg",
+           "-o", str(DOWNLOADS / "%(title).60s-%(id)s.%(ext)s"), "--print", "after_move:%(id)s"]
+    if cb:
+        cmd += ["--cookies-from-browser", cb]
+    r = subprocess.run(cmd + [url], capture_output=True, text=True, encoding="utf-8", errors="replace",
+                       timeout=3600, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                       env={**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"})
     lines = [x for x in r.stdout.splitlines() if x.strip()]
     if r.returncode != 0 or not lines:
-        raise HTTPException(400, "ဒေါင်းလို့ မရပါ: " + (r.stderr.strip().splitlines() or ["unknown"])[-1][:300])
-    f = Path(lines[-1])
-    return {"name": f.name, "url": f"/api/downloads/{f.name}", "mb": round(f.stat().st_size / 1e6, 1)}
+        err = (r.stderr.strip().splitlines() or ["unknown"])[-1][:300]
+        raise HTTPException(400, _ydl_error_my(err, url).message_my + " — " + err[:160])
+    # Find the file by video id: the printed path can come back garbled for Chinese titles on Windows.
+    vid = lines[-1].strip()
+    found = sorted((x for x in DOWNLOADS.glob(f"*{vid}.*") if x.suffix in (".mp4", ".mkv", ".webm")),
+                   key=lambda x: x.stat().st_mtime)
+    if not found:
+        raise HTTPException(500, "ဒေါင်းပြီးပေမယ့် ဖိုင် မတွေ့ပါ — 📂 folder ထဲမှာ ကြည့်ပါ: " + str(DOWNLOADS))
+    f = found[-1]
+    hist = _dl_history()
+    hist[f.name] = {"source": url, "time": time.time()}
+    _save_dl_history(hist)
+    return {**_dl_item(f, hist[f.name]), "cookies": cb or ""}
+
+
+def _dl_history() -> dict:
+    try:
+        return json.loads((DOWNLOADS / "history.json").read_text("utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_dl_history(h: dict) -> None:
+    DOWNLOADS.mkdir(parents=True, exist_ok=True)
+    (DOWNLOADS / "history.json").write_text(json.dumps(h, ensure_ascii=False, indent=1), "utf-8")
+
+
+def _dl_item(f: Path, meta: dict | None = None) -> dict:
+    from urllib.parse import quote
+
+    from .importer import site_of
+    meta = meta or {}
+    src = meta.get("source", "")
+    return {"name": f.name, "url": f"/api/downloads/{quote(f.name)}", "mb": round(f.stat().st_size / 1e6, 1),
+            "source": src, "site": site_of(src) if src else "", "time": meta.get("time") or f.stat().st_mtime,
+            "thumb": f"/api/downloads/{quote(f.name)}/thumb", "has_cover": _cover_of(f) is not None}
+
+
+def _cover_of(f: Path) -> Path | None:
+    """The platform cover yt-dlp saved next to the video (same name, image extension)."""
+    for ext in (".jpg", ".jpeg", ".webp", ".png"):
+        c = f.with_suffix(ext)
+        if c.exists():
+            return c
+    return None
+
+
+@app.get("/api/downloads/{name}/thumb")
+def download_thumb(name: str, dl: int = 0):
+    """Thumbnail of a download: the platform's own cover when it was saved, otherwise a frame from the
+    video (made once and kept as <name>.frame.jpg). ?dl=1 saves it as a file."""
+    from .media import ffmpeg_bin
+    f = (DOWNLOADS / name).resolve()
+    if DOWNLOADS.resolve() not in f.parents or not f.is_file():
+        raise HTTPException(404)
+    c = _cover_of(f)
+    if c is None:
+        c = f.with_name(f.stem + ".frame.jpg")
+        if not c.exists():
+            import subprocess
+            subprocess.run([ffmpeg_bin(), "-v", "error", "-y", "-ss", "1", "-i", str(f), "-frames:v", "1", "-q:v", "2",
+                            str(c)], capture_output=True, timeout=60,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if not c.exists():
+            raise HTTPException(404)
+    if dl:
+        return FileResponse(c, filename=f.stem + "-thumbnail" + c.suffix)
+    return FileResponse(c)
+
+
+@app.get("/api/downloads")
+def download_history() -> list[dict]:
+    """Every finished download in the downloads folder (newest first), with its source link if known."""
+    if not DOWNLOADS.exists():
+        return []
+    hist = _dl_history()
+    items = [_dl_item(f, hist.get(f.name)) for f in DOWNLOADS.iterdir()
+             if f.is_file() and f.suffix.lower() in (".mp4", ".mkv", ".webm")]
+    return sorted(items, key=lambda x: -x["time"])
+
+
+@app.delete("/api/downloads/{name}")
+def delete_download(name: str) -> dict:
+    f = (DOWNLOADS / name).resolve()
+    if DOWNLOADS.resolve() not in f.parents or not f.is_file():
+        raise HTTPException(404)
+    f.unlink()
+    for side in [_cover_of(f), f.with_name(f.stem + ".frame.jpg")]:
+        if side and side.exists():
+            side.unlink()
+    hist = _dl_history()
+    if hist.pop(name, None) is not None:
+        _save_dl_history(hist)
+    return {"ok": True}
 
 
 @app.get("/api/downloads/{name}")
@@ -581,6 +747,17 @@ def downloaded(name: str):
     if DOWNLOADS.resolve() not in f.parents or not f.is_file():
         raise HTTPException(404)
     return FileResponse(f, filename=f.name)
+
+
+@app.post("/api/downloads/{name}/reveal")
+def reveal_download(name: str) -> dict:
+    """Show the downloaded file selected in Explorer (works in the desktop window and the browser)."""
+    import subprocess
+    f = (DOWNLOADS / name).resolve()
+    if DOWNLOADS.resolve() not in f.parents or not f.is_file():
+        raise HTTPException(404)
+    subprocess.Popen(["explorer", "/select,", str(f)])
+    return {"ok": True, "path": str(f)}
 
 
 @app.post("/api/projects/{pid}/split")

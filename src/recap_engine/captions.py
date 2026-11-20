@@ -1,6 +1,7 @@
 """Stage 6: caption cues from final narration timing -> SRT / ASS / VTT."""
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +60,44 @@ def _ass_color(hex_rgba: str) -> str:
     return f"&H{a}{b}{g}{r}".upper()
 
 
+FONTS_DIR = Path(__file__).resolve().parents[2] / "fonts"
+_FONT_FILES = {"noto sans myanmar": "NotoSansMyanmar", "padauk": "PadaukBook", "noto sans thai": "NotoSansThai",
+               "noto sans": "NotoSans"}
+
+
+@lru_cache(maxsize=16)
+def _font(name: str, bold: bool, size: int):
+    """PIL font matching the caption font (falls back to Noto Sans Myanmar) - used only to measure widths."""
+    from PIL import ImageFont
+    base = next((v for k, v in _FONT_FILES.items() if name.lower().startswith(k)), "NotoSansMyanmar")
+    for variant in (("Bold", "Regular") if bold else ("Regular", "Bold")):
+        f = FONTS_DIR / f"{base}-{variant}.ttf"
+        if f.exists():
+            return ImageFont.truetype(str(f), size)
+    return None
+
+
+def text_width(text: str, font_name: str, bold: bool, size: int) -> float:
+    f = _font(font_name, bold, max(8, size))
+    if f is None:
+        return len(text) * size * 0.55
+    asc, desc = f.getmetrics()  # libass sizes a font so ascent+descent == Fontsize, not the em size
+    return size / max(1, asc + desc) * max(f.getlength(line) for line in text.split(r"\N"))
+
+
+def fit_line(text: str, style: CaptionStyle, size: int, max_px: float) -> str:
+    """Wrap to at most two lines; if a line is still wider than the safe area (long Burmese words, big
+    font), shrink just this cue horizontally+vertically so nothing runs past the frame edges."""
+    text = wrap_two_lines(text, style.max_chars_per_line)
+    if r"\N" not in text and text_width(text, style.font, style.bold, size) > max_px:
+        text = wrap_two_lines(text, max(4, display_len(text) // 2))  # force a split near the middle
+    wpx = text_width(text, style.font, style.bold, size) + 2 * style.outline
+    if wpx > max_px > 0:
+        k = max(40, int(100 * max_px / wpx))
+        return f"{{\\fscx{k}\\fscy{k}}}" + text
+    return text
+
+
 def _ass_ts(t: float) -> str:
     cs = int(round(t * 100))
     h, cs = divmod(cs, 360000)
@@ -101,9 +140,11 @@ def to_ass(cues: list[dict], aspect: str, style: CaptionStyle, scale: float = 1.
         "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
     )
     kw_col = _ass_color(style.keyword_color)
+    # usable width in ASS pixels, with a small safety factor (libass shaping differs slightly from PIL)
+    max_px = (w - (m["margin_l"] + m["margin_r"]) * scale) * 0.95
     lines = []
     for c in (cues if style.burn else []):
-        text = wrap_two_lines(c["text"], style.max_chars_per_line)
+        text = fit_line(c["text"], style, size, max_px)
         for kw in style.keywords:
             if kw and kw in text:
                 text = text.replace(kw, f"{{\\c{kw_col}}}{kw}{{\\r}}")
@@ -120,7 +161,8 @@ def caption_inputs(ctx: Context) -> Any:
     p = ctx.project
     beats = p.read_json("script/beats.json", [])
     return {"b": [(b.get("spoken_text"), b.get("out_start"), b.get("tts_seconds")) for b in beats],
-            "style": ctx.settings.caption.model_dump(), "aspect": ctx.settings.aspect}
+            "style": ctx.settings.caption.model_dump(), "aspect": ctx.settings.aspect,
+            "fit": 2}  # v2: pixel-width fitting (captions no longer run past the frame edges)
 
 
 def stage_captions(ctx: Context) -> dict[str, str]:

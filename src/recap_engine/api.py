@@ -115,8 +115,13 @@ def list_projects(root: Path | None = None) -> list[dict]:
         try:
             p = Project(m.parent)
             st = p.manifest.stages
+            probe = p.manifest.source.get("probe") or {}
+            final = p.path("export", "final.mp4")
             out.append({"project_id": p.manifest.project_id, "title": p.manifest.title, "created": p.manifest.created,
                         "mode": p.manifest.settings.mode, "status": overall_status(p),
+                        "language": p.manifest.settings.language, "aspect": p.manifest.settings.aspect,
+                        "duration": probe.get("duration"),
+                        "mb": round(final.stat().st_size / 1e6, 1) if final.exists() else None,
                         "done": sum(1 for s in st.values() if s.status == "done"), "total": len(STAGES)})
         except Exception:  # noqa: BLE001
             continue

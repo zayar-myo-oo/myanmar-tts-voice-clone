@@ -45,7 +45,25 @@ def main() -> int:
         except Exception:  # noqa: BLE001  (studio still opens; jobs report Ollama errors themselves)
             pass
     threading.Thread(target=_ollama, daemon=True).start()
-    webview.create_window("Drama Recap Studio", URL, width=1440, height=900, min_size=(1000, 680))
+    webview.settings["ALLOW_DOWNLOADS"] = True  # pywebview blocks <a download> (Save buttons) by default
+    try:  # own taskbar entry + icon instead of python's
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("DramaRecapStudio.App")
+    except Exception:  # noqa: BLE001
+        pass
+    win = webview.create_window("Drama Recap Studio", URL, width=1440, height=900, min_size=(1000, 680))
+
+    def _set_icon() -> None:  # Windows (WinForms): title-bar / taskbar icon
+        try:
+            from pathlib import Path
+
+            from System.Drawing import Icon  # type: ignore  (pythonnet, shipped with pywebview on Windows)
+            ico = Path(__file__).with_name("web") / "icon.ico"
+            if ico.exists():
+                win.native.Icon = Icon(str(ico))
+        except Exception:  # noqa: BLE001
+            pass
+    win.events.shown += _set_icon
     webview.start(private_mode=False)  # keeps localStorage (settings, studio prefs) between launches
     return 0
 
