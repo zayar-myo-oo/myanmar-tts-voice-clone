@@ -1,7 +1,6 @@
 """Paid API providers the user can plug in (own keys, stored in config/api_keys.json):
 
   * Claude (Anthropic SDK)       llm_model "claude:<model id>"  - script / translation / post kit
-                                  (animation scene code: anim_ai.py)
   * OpenAI (ChatGPT / Codex)     llm_model "oai:<model id>"     - script / translation / post kit
   * ElevenLabs                   voice_id  "el:<voice id>"      - narration / dub / voiceover voices
 
@@ -43,9 +42,11 @@ def _key(name: str, label: str) -> str:
 # ------------------------------------------------------------------ Claude
 def claude_models() -> list[str]:
     def f():
-        import anthropic
-        c = anthropic.Anthropic(api_key=_key("anthropic", "Claude"), max_retries=1, timeout=20)
-        return [m.id for m in c.models.list(limit=50)]
+        from .cloud import anthropic_client, anthropic_relay
+        _key("anthropic", "Claude")
+        if anthropic_relay():       # a relay usually has no /models: offer the app's model names (mapped when called)
+            return ["claude-opus-5-5", "claude-sonnet-5-5"]
+        return [m.id for m in anthropic_client(20, 1).models.list(limit=50)]
     return _cached("claude_models", f)
 
 
@@ -54,7 +55,12 @@ def claude_chat(model: str, system: str, user: str, *, json_schema: dict | None 
     import base64
 
     import anthropic
-    c = anthropic.Anthropic(api_key=_key("anthropic", "Claude"), timeout=900)
+
+    from .cloud import anthropic_client, anthropic_model, anthropic_relay
+    _key("anthropic", "Claude")
+    c = anthropic_client(900)
+    model = anthropic_model(model)
+    extra = {} if anthropic_relay() else {"output_config": {"effort": "medium"}}
     content: list[dict] = [{"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                                          "data": base64.standard_b64encode(Path(i).read_bytes()).decode()}}
                            for i in (images or [])]
@@ -63,8 +69,7 @@ def claude_chat(model: str, system: str, user: str, *, json_schema: dict | None 
     content.append({"type": "text", "text": user})
     try:
         with c.messages.stream(model=model, max_tokens=32000, system=sys_txt,
-                               messages=[{"role": "user", "content": content}],
-                               output_config={"effort": "medium"}) as s:
+                               messages=[{"role": "user", "content": content}], **extra) as s:
             resp = s.get_final_message()
     except anthropic.AuthenticationError as e:
         raise RecapError("missing_key", "Claude API key မမှန်ပါ။") from e
@@ -203,6 +208,77 @@ def elevenlabs_tts(text: str, voice_id: str, out: Path, speed: float = 1.0) -> f
     raise RecapError("tts_failed", "ElevenLabs မအောင်မြင်ပါ။")
 
 
+# ------------------------------------------------------------------ Google AI Studio (Gemini TTS)
+GEM = "https://generativelanguage.googleapis.com/v1beta"
+GEMINI_TTS_MODEL = "gemini-3.8-flash-tts"  # the Gemini TTS model that lists Burmese (my); Flash-Lite does not
+GEMINI_STYLE = "warm, natural storytelling voice, clear pronunciation, steady pace"
+# (name, style, gender) - prebuilt voices from the Gemini speech-generation docs
+GEMINI_VOICES = [
+    ("Charon", "Informative", "m"), ("Kore", "Firm", "f"), ("Puck", "Upbeat", "m"), ("Zephyr", "Bright", "f"),
+    ("Fenrir", "Excitable", "m"), ("Leda", "Youthful", "f"), ("Orus", "Firm", "m"), ("Aoede", "Breezy", "f"),
+    ("Callirrhoe", "Easy-going", "f"), ("Autonoe", "Bright", "f"), ("Enceladus", "Breathy", "m"),
+    ("Iapetus", "Clear", "m"), ("Umbriel", "Easy-going", "m"), ("Algieba", "Smooth", "m"), ("Despina", "Smooth", "f"),
+    ("Erinome", "Clear", "f"), ("Algenib", "Gravelly", "m"), ("Rasalgethi", "Informative", "m"),
+    ("Laomedeia", "Upbeat", "f"), ("Achernar", "Soft", "f"), ("Alnilam", "Firm", "m"), ("Schedar", "Even", "m"),
+    ("Gacrux", "Mature", "f"), ("Pulcherrima", "Forward", "f"), ("Achird", "Friendly", "m"),
+    ("Zubenelgenubi", "Casual", "m"), ("Vindemiatrix", "Gentle", "f"), ("Sadachbia", "Lively", "m"),
+    ("Sadaltager", "Knowledgeable", "m"), ("Sulafat", "Warm", "f")]
+
+
+def gemini_voices() -> list[dict]:
+    return [{"id": "gem:" + n, "name": n, "style": st, "gender": g} for n, st, g in GEMINI_VOICES]
+
+
+def _gem_headers() -> dict:
+    return {"x-goog-api-key": _key("gemini", "Google AI Studio (Gemini)"), "Content-Type": "application/json"}
+
+
+def gemini_tts(text: str, voice_id: str, out: Path, speed: float = 1.0, style: str = GEMINI_STYLE) -> float:
+    """Gemini TTS (Google AI Studio key). The model detects the language itself (Burmese / English / Thai);
+    it returns a 24 kHz mono WAV. It has no speed control, so speed is applied afterwards with atempo."""
+    import base64
+
+    from .media import audio_duration, ffmpeg_bin, run as ff_run
+    voice = voice_id.split(":", 1)[1]
+    body = {"contents": [{"role": "user", "parts": [{"text": text, "speech_metadata": {"style": style}}]}],
+            "generationConfig": {"responseModalities": ["AUDIO"], "speechConfig": {"voiceConfig": {"voice": voice}}}}
+    url = f"{GEM}/models/{GEMINI_TTS_MODEL}:generateContent"
+    for attempt in range(4):
+        try:
+            r = httpx.post(url, json=body, headers=_gem_headers(), timeout=180)
+        except httpx.HTTPError as e:
+            if attempt == 3:
+                raise RecapError("tts_failed", "Google AI Studio ကို ချိတ်လို့ မရပါ — internet စစ်ပါ။", str(e)) from e
+            time.sleep(3)
+            continue
+        if r.status_code in (429, 500, 503) and attempt < 3:  # free tier rate limit / busy: wait and retry
+            time.sleep(8 * (attempt + 1))
+            continue
+        if r.status_code in (401, 403):
+            raise RecapError("missing_key", "Google AI Studio (Gemini) API key မမှန်ပါ (သို့) ခွင့်မရှိပါ။", r.text[:600])
+        if r.status_code != 200:
+            msg = ("Google AI Studio quota ကုန်နေပါပြီ (ခဏနေမှ ပြန်စမ်းပါ)။" if r.status_code == 429
+                   else f"Gemini TTS error {r.status_code}")
+            raise RecapError("tts_failed", msg, r.text[:800])
+        try:
+            part = r.json()["candidates"][0]["content"]["parts"][0]["inlineData"]
+            raw = base64.b64decode(part["data"])
+        except (KeyError, IndexError, ValueError) as e:
+            raise RecapError("tts_failed", "Gemini က အသံ မပြန်ပေးပါ (စာသားကို ပြန်စစ်ပါ)။", r.text[:800]) from e
+        tmp = out.with_suffix(".gem.wav")
+        if raw[:4] != b"RIFF":  # headerless 16-bit PCM
+            import wave
+            with wave.open(str(tmp), "wb") as w:
+                w.setnchannels(1); w.setsampwidth(2); w.setframerate(24000); w.writeframes(raw)
+        else:
+            tmp.write_bytes(raw)
+        af = ["-af", f"atempo={max(0.6, min(1.6, speed)):.3f}"] if abs(speed - 1.0) > 0.01 else []
+        ff_run([ffmpeg_bin(), "-y", "-v", "error", "-i", str(tmp), *af, "-ar", "24000", "-ac", "1", str(out)])
+        tmp.unlink(missing_ok=True)
+        return audio_duration(out)
+    raise RecapError("tts_failed", "Gemini TTS မအောင်မြင်ပါ။")
+
+
 # ------------------------------------------------------------------ key tests + summary
 def test(name: str) -> dict:
     try:
@@ -219,6 +295,15 @@ def test(name: str) -> dict:
             s = r.json()
             left = (s.get("character_limit") or 0) - (s.get("character_count") or 0)
             return {"ok": True, "message": f"Key အလုပ်လုပ်ပါတယ် · {s.get('tier', '')} · စာလုံး {left:,} ကျန်"}
+        if name == "gemini":
+            r = httpx.get(f"{GEM}/models", headers=_gem_headers(), params={"pageSize": 200}, timeout=20)
+            if r.status_code in (400, 401, 403):
+                return {"ok": False, "message": f"Key မမှန်ပါ ({r.status_code})"}
+            r.raise_for_status()
+            names = [m.get("name", "") for m in r.json().get("models", [])]
+            has = any(GEMINI_TTS_MODEL in n for n in names)
+            return {"ok": True, "message": "Key အလုပ်လုပ်ပါတယ် · " + (f"{GEMINI_TTS_MODEL} ✓ (မြန်မာ ပါ)" if has else
+                    f"{GEMINI_TTS_MODEL} ကို ဒီ key နဲ့ မတွေ့ပါ — AI Studio မှာ ခွင့်ပြုချက် စစ်ပါ")}
     except RecapError as e:
         return {"ok": False, "message": e.message_my}
     except httpx.HTTPStatusError as e:
@@ -246,4 +331,6 @@ def summary() -> dict:
             out["elevenlabs"]["models"] = elevenlabs_models()
         except Exception as e:  # noqa: BLE001
             out["elevenlabs"]["error"] = str(e)[:200]
+    out["gemini"] = {"set": bool(keys.get("gemini")), "model": GEMINI_TTS_MODEL,
+                     "voices": gemini_voices() if keys.get("gemini") else []}
     return out

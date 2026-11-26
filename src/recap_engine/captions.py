@@ -7,7 +7,56 @@ from typing import Any
 
 from .burmese import display_len, split_phrases, wrap_two_lines
 from .pipeline import Context
-from .settings import ASPECT_SIZES, CaptionStyle
+from .settings import ASPECT_SIZES, CaptionStyle  # noqa: I001
+
+
+def src_to_out_y(s, src_w: int, src_h: int, y: float) -> float:
+    """Where a source height fraction lands in the output frame (crop box, zoom and reframe applied)."""
+    w, h = float(src_w), float(src_h)
+    c = s.crop_box
+    if c:
+        y = (y - c["y0"]) / max(1e-6, c["y1"] - c["y0"])
+        w, h = w * (c["x1"] - c["x0"]), h * (c["y1"] - c["y0"])
+    if s.zoom > 1.001:
+        y = (y - (1 - 1 / s.zoom) / 2) * s.zoom
+    from .transform import effective
+    # "keep the original aspect" only exists in the transform render path (transform.enabled)
+    if (s.transform.enabled and effective(s.transform).aspect_original) or w <= 0 or h <= 0:
+        return min(1.0, max(0.0, y))
+    W, H = ASPECT_SIZES[s.aspect]
+    k = max(W / w, H / h) if s.reframe == "center_crop" else min(W / w, H / h)
+    return min(1.0, max(0.0, (y * h * k + (H - h * k) / 2) / H))
+
+
+_AUTO_CACHE: dict[str, tuple[float, Any, Any]] = {}
+
+
+def resolve_auto(project, s):
+    """caption.position == "auto": put the captions on the burned-in subtitle band found by OCR and widen the blur over
+    that band, so nobody has to draw a blur box or drag the caption. Falls back to "bottom" when no band was found."""
+    f = project.path("analysis", "ocr.json")
+    mt = f.stat().st_mtime if f.exists() else 0.0
+    key = str(project.root)
+    hit = _AUTO_CACHE.get(key)
+    if hit and hit[0] == mt and hit[1] is s:
+        return hit[2]
+    region = (project.read_json("analysis/ocr.json", {}) or {}).get("region") if mt else None
+    if not region:
+        out = s.model_copy(update={"caption": s.caption.model_copy(update={"position": "bottom"})})
+    else:
+        pr = project.manifest.source.get("probe", {})
+        sw, sh = int(pr.get("width") or 1920), int(pr.get("height") or 1080)
+        y0, y1 = float(region["y0"]), float(region["y1"])
+        # captions are bottom-anchored a little under pos_pct: aim at the lower part of the band
+        pos = src_to_out_y(s, sw, sh, y0 + 0.65 * (y1 - y0))
+        cap = s.caption.model_copy(update={"position": "custom", "pos_pct": round(min(0.97, max(0.08, pos)), 4)})
+        # cover the whole subtitle (descenders, a second line, slightly off-centre lines), not only the median box
+        box = {"x0": round(max(0.0, region["x0"] - 0.05), 4), "y0": round(max(0.0, y0 - 0.035), 4),
+               "x1": round(min(1.0, region["x1"] + 0.05), 4), "y1": round(min(1.0, y1 + 0.05), 4), "strength": 20, "auto": True}
+        boxes = [b for b in (s.blur_boxes or []) if not b.get("auto")] + ([box] if s.hardsub == "blur" else [])
+        out = s.model_copy(update={"caption": cap, "blur_boxes": boxes})
+    _AUTO_CACHE[key] = (mt, s, out)
+    return out
 
 
 def build_cues(beats: list[dict], max_chars: int = 22) -> list[dict]:

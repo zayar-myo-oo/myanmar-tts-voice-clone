@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import collections
 import json
+import re
 import os
 import shutil
 import tempfile
@@ -387,7 +388,7 @@ VOICEOVER = ROOT / "_voiceover"
 SAMPLE_MY = "မင်္ဂလာပါ။ ဒီနေ့ ဇာတ်လမ်းလေးတစ်ပုဒ်ကို အတူတူ ကြည့်ကြရအောင်။"
 def voice_speaks(voice_id: str, lang: str) -> bool:
     """Local Nara + Thiha/Nilar = Burmese only; edge_en_* / edge_th_* = that language; ElevenLabs = any."""
-    if voice_id.startswith("el:"):
+    if voice_id.startswith(("el:", "gem:")):  # multilingual cloud voices
         return True
     if voice_id.startswith("edge_en_"):
         return lang == "en"
@@ -416,7 +417,11 @@ def put_keys(body: dict) -> dict:
 
 @app.post("/api/keys/test")
 def test_keys(body: dict) -> dict:
-    return cloud.test_key(body.get("name", "openrouter"))
+    name = body.get("name", "openrouter")
+    ov = {name: (body.get("value") or "").strip()}
+    if name == "anthropic":
+        ov["anthropic_base_url"] = (body.get("base") or "").strip().rstrip("/")
+    return cloud.test_key(name, ov)
 
 
 @app.get("/api/voices")
@@ -781,86 +786,98 @@ def split_video(pid: str, body: dict) -> dict:
     return {"parts": [f"export/parts/{f.name}" for f in parts]}
 
 
-# ------------------------------------------------------------------ animation tab (Remotion cartoon shorts)
-from . import animation  # noqa: E402
+# ------------------------------------------------------------------ Dubbing (English short -> Burmese voice + captions)
+from . import dubbing  # noqa: E402
+
+dubbing.recover()
+_DUB_FILES = {"final.mp4", "final.srt", "thumb.jpg", "log.txt", "captions.ass"}
 
 
-@app.get("/api/anim")
-def anim_list() -> dict:
-    return animation.discover()
+@app.get("/api/dub/voices")
+def dub_voices() -> list[dict]:
+    return dubbing.voices()
 
 
-@app.put("/api/anim/root")
-def anim_root(body: dict) -> dict:
-    animation.set_root(body.get("root", ""))
-    return animation.discover()
+@app.get("/api/dub/glossary")
+def dub_glossary() -> dict:
+    return dubbing.load_glossary()
 
 
-@app.get("/api/anim/{key}/lines")
-def anim_lines(key: str) -> dict:
-    return animation.get_lines(key)
+@app.put("/api/dub/glossary")
+def dub_glossary_save(body: dict) -> dict:
+    return dubbing.save_glossary(body.get("entries") or {})
 
 
-@app.put("/api/anim/{key}/lines")
-def anim_save_lines(key: str, body: dict) -> dict:
-    animation.save_lines(key, body.get("lines", []), body.get("voices"))
-    return animation.get_lines(key)
+@app.get("/api/dub")
+def dub_list() -> list[dict]:
+    return dubbing.list_jobs()
 
 
-@app.post("/api/anim/{key}/script")
-def anim_script(key: str, body: dict) -> dict:
-    lines = animation.write_script(body.get("topic", ""), body.get("model") or "gemma4:26b",
-                                   body.get("speakers") or ["narrator"], int(body.get("n", 12)))
-    return {"lines": lines}
+@app.post("/api/dub")
+def dub_new(file: UploadFile = File(...), opts: str = Form("{}"), title: str = Form("")) -> dict:
+    ext = Path(file.filename or "video.mp4").suffix.lower()
+    if ext not in (".mp4", ".mkv", ".mov", ".webm", ".m4v"):
+        raise HTTPException(400, "MP4 / MKV / MOV / WebM ဗီဒီယိုပဲ ရပါတယ်။")
+    try:
+        o = json.loads(opts or "{}")
+    except ValueError as e:
+        raise HTTPException(400, "opts မမှန်ပါ") from e
+    with tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir=dubbing.root()) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+    try:
+        job = dubbing.create(Path(tmp.name), title or Path(file.filename or "video").stem, o, move=True)
+    finally:
+        Path(tmp.name).unlink(missing_ok=True)
+    dubbing.start(job)
+    return dubbing.public(job)
 
 
-@app.post("/api/anim/create")
-def anim_create(body: dict) -> dict:
-    """New short from a script: scaffold from a template, save lines + voices, then queue
-    voice -> Claude scene code -> render -> final mux."""
-    from . import anim_ai
-    from .cloud import load_keys
-    if not load_keys().get("anthropic"):
-        raise HTTPException(400, "Claude API key မထည့်ရသေးပါ။ Settings → ☁ Cloud / API Key မှာ ထည့်ပါ။")
-    key = (body.get("key") or "").strip().lower()
-    anim_ai.scaffold(key, body.get("template", "rock"))
-    animation.save_lines(key, body.get("lines", []), body.get("voices", {}))
-    steps = ["voice", "ai_code"] + (["render", "mux"] if body.get("render", True) else [])
-    return animation.submit(key, steps, {"voices": body.get("voices", {}), "speed": body.get("speed", 1.0),
-                                         "title": body.get("title", key), "notes": body.get("notes", ""),
-                                         "model": body.get("model") or "claude-opus-5-5", "review": True})
+@app.get("/api/dub/{jid}")
+def dub_get(jid: str) -> dict:
+    return dubbing.public(dubbing.get(jid), full=True)
 
 
-@app.post("/api/anim/{key}/run")
-def anim_run(key: str, body: dict) -> dict:
-    return animation.submit(key, body.get("steps", []), body.get("args", {}))
+@app.put("/api/dub/{jid}")
+def dub_update(jid: str, body: dict) -> dict:
+    """Save edited Burmese lines / options and re-run voice + render (earlier steps stay cached)."""
+    job = dubbing.get(jid)
+    if job.meta.get("state") in ("running", "queued"):
+        raise HTTPException(400, "အလုပ်လုပ်နေဆဲပါ — ပြီးမှ ပြင်ပါ။")
+    frm = dubbing.update_lines(job, body.get("lines", []), body.get("hook"), body.get("opts"))
+    dubbing.start(job, frm)
+    return dubbing.public(job)
 
 
-@app.get("/api/anim/tasks")
-def anim_tasks() -> list[dict]:
-    return [animation.public(t) for t in sorted(animation.TASKS.values(), key=lambda x: -x["created"])][:20]
+@app.post("/api/dub/{jid}/retry")
+def dub_retry(jid: str) -> dict:
+    job = dubbing.get(jid)
+    if job.meta.get("state") not in ("running", "queued"):
+        dubbing.start(job)
+    return dubbing.public(job)
 
 
-@app.post("/api/anim/tasks/{tid}/cancel")
-def anim_cancel(tid: str) -> dict:
-    animation.cancel(tid)
+@app.post("/api/dub/{jid}/cancel")
+def dub_cancel(jid: str) -> dict:
+    dubbing.get(jid).cancel = True
     return {"ok": True}
 
 
-@app.get("/api/anim/tasks/{tid}/log")
-def anim_log(tid: str) -> Response:
-    t = animation.TASKS.get(tid)
-    return Response("\n".join(t["log"]) if t else "", media_type="text/plain; charset=utf-8")
+@app.delete("/api/dub/{jid}")
+def dub_delete(jid: str) -> dict:
+    job = dubbing.get(jid)
+    if job.meta.get("state") in ("running", "queued"):
+        raise HTTPException(400, "အလုပ်လုပ်နေဆဲပါ — အရင် ရပ်ပါ။")
+    dubbing.JOBS.pop(jid, None)
+    shutil.rmtree(job.dir, ignore_errors=True)
+    return {"ok": True}
 
 
-@app.get("/api/anim/file")
-def anim_file(path: str):
-    return FileResponse(animation.safe_file(path))
-
-
-@app.post("/api/anim/studio")
-def anim_studio() -> dict:
-    return {"url": animation.start_studio()}
+@app.get("/api/dub/{jid}/file/{name}")
+def dub_file(jid: str, name: str):
+    job = dubbing.get(jid)
+    if name not in _DUB_FILES or not (job.dir / name).is_file():
+        raise HTTPException(404)
+    return FileResponse(job.dir / name)
 
 
 app.mount("/", StaticFiles(directory=WEB, html=True), name="web")
@@ -885,3 +902,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

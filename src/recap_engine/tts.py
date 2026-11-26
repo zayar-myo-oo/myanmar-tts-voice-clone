@@ -146,13 +146,16 @@ def edge_synth(text: str, voice_id: str, out: Path, speed: float = 1.0) -> float
 
 
 def is_remote_voice(voice_id: str) -> bool:
-    return voice_id in EDGE_VOICES or voice_id.startswith("el:")
+    return voice_id in EDGE_VOICES or voice_id.startswith(("el:", "gem:"))
 
 
 def synth_any(text: str, voice_id: str, out: Path, speed: float = 1.0) -> float:
     if voice_id.startswith("el:"):  # ElevenLabs (user's key)
         from .providers import elevenlabs_tts
         return elevenlabs_tts(text, voice_id, out, speed)
+    if voice_id.startswith("gem:"):  # Google AI Studio Gemini TTS (user's key)
+        from .providers import gemini_tts
+        return gemini_tts(text, voice_id, out, speed)
     if voice_id in EDGE_VOICES:
         return edge_synth(text, voice_id, out, speed)
     with TTSClient.lease() as tts:
@@ -170,6 +173,7 @@ def synth_cached(text: str, voice_id: str, out_dir: Path, stem: str, speed: floa
     spoken = prepare_text(text)
     h = hash_obj({"t": spoken, "v": voice_id, "s": round(speed, 3),
                   "engine": "elevenlabs" if voice_id.startswith("el:") else
+                  "gemini-3.8-flash-tts" if voice_id.startswith("gem:") else
                   "edge-neural" if voice_id in EDGE_VOICES else "nara-mini-v1"})
     out = out_dir / f"{stem}_{h}.wav"
     if out.exists():

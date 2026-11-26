@@ -28,6 +28,28 @@ STYLE_HINTS = {
     "documentary": "neutral documentary narration",
 }
 
+# Narration tone. The facts of the story never change; only the way it is told does.
+TONE_HINTS = {
+    "normal": "",
+    "rude": ("TONE = RUDE STREET TALK. Tell it like a foul-mouthed Burmese guy ranting to his friends: crude, mocking, swearing at the "
+             "characters and what they do, with short sarcastic side comments of your own between the facts. Use real Burmese street "
+             "insults and swear words naturally and often, for example: ငါလိုးမသား, မအေလိုး, ခွေးကောင်, ခွေးသား, စောက်ဖြစ်မရှိဘူး, လီးပဲ, "
+             "တောသား, မျိုးမစစ်, စောက်ရူး (e.g. \"ဒီခွေးကောင်က ဘာမှမသိဘဲ...\", \"ဒီတောသားတစ်ယောက်က...\", \"စောက်ဖြစ်မရှိတဲ့ကောင်\"). "
+             "Insult the characters, never the viewer and never a real group of people. The EVENTS stay exactly the same: you add "
+             "attitude and commentary, you do not change who did what."),
+    "funny": ("TONE = COMEDY. Tell it like a funny Burmese friend who exaggerates everything: playful teasing of the characters, silly "
+              "comparisons, over-the-top reactions and small jokes of your own between the facts (e.g. \"အဲ့ဒီမှာ ဇာတ်လမ်းက စတာပဲ ဗျာ\", "
+              "\"သူ့ခမျာ အိမ်ပြန်ချင်နေပြီ\"). No swearing. The EVENTS stay exactly the same: you add jokes and exaggeration, you do not "
+              "change who did what."),
+}
+
+
+def tone_rule(tone: str) -> str:
+    """Extra system-prompt text for a tone ("" for normal)."""
+    h = TONE_HINTS.get(tone or "normal", "")
+    return (" " + h + " The added remarks are opinions and jokes only: never a new plot event, name or outcome.") if h else ""
+
+
 LANG_NAME = {"my": "Burmese (Myanmar Unicode)", "en": "English", "th": "Thai"}
 NAME_RULE = {  # what the character table's display name ("my" field) holds for each output language
     "my": "Burmese transliteration in Myanmar script that stays fixed forever",
@@ -117,6 +139,11 @@ REVIEW_SCHEMA = {"type": "object", "properties": {
         "cause_and_effect": {"type": "string"}}},
     "notes": {"type": "string"}, "beats": BEATS_SCHEMA["properties"]["beats"]},
     "required": ["checklist", "notes", "beats"]}
+
+INTRO_SCHEMA = {"type": "object", "properties": {
+    "intro": {"type": "string"}, "why_watch": {"type": "string"},
+    "montage": {"type": "array", "items": {"type": "array", "items": {"type": "number"}}}},
+    "required": ["intro", "montage"]}
 
 HOOKS_SCHEMA = {"type": "object", "properties": {"hooks": {"type": "array", "items": {"type": "string"}}},
                 "required": ["hooks"]}
@@ -242,9 +269,38 @@ def apply_names(text: str, chars: list[dict], lang: str = "my") -> str:
 
 
 # ------------------------------------------------------------------ recap writing
+def recap_seconds(ctx: Context) -> float:
+    s = ctx.settings
+    return max(15.0, s.target_seconds - (s.intro_seconds if s.hook_intro and s.mode == "recap" else 0))
+
+
 def target_syllables(ctx: Context, rate_sps: float) -> int:
     # ~8% of time is pauses between beats
-    return int(ctx.settings.target_seconds * 0.92 * rate_sps)
+    return int(recap_seconds(ctx) * 0.92 * rate_sps)
+
+
+def write_intro(ctx: Context, mem: dict, rate_sps: float) -> dict:
+    """Teaser intro from the whole story: what makes it worth watching, without giving the ending away,
+    plus 4-6 short montage ranges of the strongest visual moments from across the video."""
+    s = ctx.settings
+    lang = LANG_NAME[s.language]
+    syl = max(20, int(s.intro_seconds * 0.95 * rate_sps))
+    names = "\n".join(f"- {c['zh']} => {c['my']} ({c.get('role', '')})" for c in mem["characters"])
+    events = "\n".join(f"[{fmt_t(e['start'])}-{fmt_t(e['end'])}] (imp {e.get('importance', 3)}{', visual' if e.get('visual') else ''}) "
+                       f"{e['summary']}" for e in mem["events"])
+    system = (f"You write the opening intro of a viral {lang} movie-recap video. Write natural SPOKEN {lang}, "
+              "like a person excitedly telling a friend. Use ONLY the events listed. Never invent anything.")
+    user = (f"Characters:\n{names}\n\nWhole story: {mem['so_far']}\n\nEvents:\n{events}\n\n"
+            f"Write the INTRO (~{syl} {lang} syllables, about {s.intro_seconds:.0f} seconds spoken) that plays BEFORE the recap:\n"
+            "1. First sentence grabs attention in under 3 seconds (the most shocking situation or question).\n"
+            "2. Then say WHY this story is worth watching: the central conflict, what is at stake, the twist that is coming "
+            "- tease it, do NOT reveal how it ends.\n"
+            "3. End with a line that leads into the story (e.g. 'let's see how it all started').\n"
+            "4. Use the character names from the table (the name after =>) exactly.\n"
+            "montage = 4-6 [start,end] ranges (2-3 seconds each) of the most dramatic VISUAL moments spread across the "
+            "WHOLE video (beginning, middle and end), taken from the event times. why_watch = one English sentence.")
+    out = chat_json(s.llm_model, system, user, INTRO_SCHEMA, temperature=0.7)
+    return out
 
 
 def write_recap(ctx: Context, mem: dict, rate_sps: float) -> dict:
@@ -252,17 +308,19 @@ def write_recap(ctx: Context, mem: dict, rate_sps: float) -> dict:
     model = s.llm_model
     lang = LANG_NAME[s.language]
     total_syl = target_syllables(ctx, rate_sps)
-    n_beats = max(4, int(round(s.target_seconds / 9)))
+    n_beats = max(4, int(round(recap_seconds(ctx) / 9)))
     per_beat = max(15, total_syl // n_beats)
     names = "\n".join(f"- {c['zh']} => {c['my']} ({c.get('role', '')}; {c.get('relations', '')})" for c in mem["characters"])
     events = "\n".join(f"[{fmt_t(e['start'])}-{fmt_t(e['end'])}] (imp {e.get('importance', 3)}{', visual' if e.get('visual') else ''}) "
                        f"{e['summary']}" for e in mem["events"])
     system = (f"You write viral {lang} movie-recap narration. Style: {STYLE_HINTS[s.narration_style]}. "
               f"Write natural SPOKEN {lang}, like a person talking to friends, not textbook or formal written language. "
-              "Use ONLY events listed. Never invent events, names, or outcomes.")
+              "Use ONLY events listed. Never invent events, names, or outcomes." + tone_rule(s.tone))
     rules = (f"Rules:\n1. Exactly about {n_beats} beats in story order. Each beat narration is ~{per_beat} {lang} syllables "
              f"(~{per_beat / rate_sps:.0f} seconds spoken).\n"
-             "2. Beat 1 is a HOOK: the most shocking/intriguing moment or question, so viewers keep watching within 3 seconds.\n"
+             + ("2. An intro teaser already plays before beat 1, so beat 1 STARTS the story from the beginning "
+                "(who, where, what is going on) - do not repeat the hook.\n" if s.hook_intro else
+                "2. Beat 1 is a HOOK: the most shocking/intriguing moment or question, so viewers keep watching within 3 seconds.\n") +
              "3. Keep relationships, motivations, major turns and cause->effect clear.\n"
              "4. Use the character names from the table (the name after =>) EXACTLY, every time.\n"
              "5. source_ranges: 1-3 [start,end] second ranges from the event list that SHOW what this beat says "
@@ -280,7 +338,8 @@ def write_recap(ctx: Context, mem: dict, rate_sps: float) -> dict:
     review_user = (f"Characters:\n{names}\n\nEvents (ground truth):\n{events}\n\nDRAFT beats:\n"
                    f"{json.dumps(draft, ensure_ascii=False)}\n\nReview the draft against this checklist and then return a "
                    "REVISED full beats list that fixes every problem:\n"
-                   "- invented_events: anything not in the events list? remove it.\n"
+                   "- invented_events: anything not in the events list? remove it"
+                   + (" (the narrator's own insults, jokes and side comments are wanted: keep them)" if s.tone != "normal" else "") + ".\n"
                    "- name_consistency: every character uses the exact name from the table?\n"
                    f"- natural_spoken: does it sound like natural spoken {lang}? rewrite stiff/literal lines.\n"
                    "- hook_first_3s: is beat 1 a strong hook?\n"
@@ -290,6 +349,10 @@ def write_recap(ctx: Context, mem: dict, rate_sps: float) -> dict:
                    f"Keep the same length budget (~{per_beat} syllables per beat, ~{n_beats} beats). "
                    "Fill checklist with a short verdict for each item, notes = what you changed.")
     review = chat_json(model, system, review_user, REVIEW_SCHEMA, temperature=0.4)
+    intro = None
+    if s.hook_intro:
+        ctx.progress(0.75, "Intro (ဘာကြောင့် ကြည့်သင့်လဲ) ရေးနေပါတယ်")
+        intro = write_intro(ctx, mem, rate_sps)
     ctx.progress(0.8, "အဖွင့် hook ၃ မျိုး ရေးနေပါတယ်")
     hooks_user = (f"Story summary: {mem['so_far']}\nEvents:\n{events}\nCharacters:\n{names}\n\n"
                   f"Write 3 DIFFERENT alternative opening hooks in natural spoken {lang} (each ~{per_beat} syllables), "
@@ -298,7 +361,7 @@ def write_recap(ctx: Context, mem: dict, rate_sps: float) -> dict:
     hooks = chat_json(model, system, hooks_user, HOOKS_SCHEMA, temperature=0.9).get("hooks", [])[:3]
     unload(model)
     return {"draft": draft, "review": {"checklist": review.get("checklist"), "notes": review.get("notes")},
-            "final": review.get("beats") or draft, "hooks": hooks}
+            "final": review.get("beats") or draft, "hooks": hooks, "intro": intro}
 
 
 # ------------------------------------------------------------------ validation + ranking
@@ -372,7 +435,9 @@ def script_inputs(ctx: Context) -> Any:
     p = ctx.project
     return {"tr": p.stage("transcribe").input_hash, "vis": p.stage("vision").input_hash, "mode": s.mode,
             "lang": s.language, "target": s.target_seconds, "style": s.narration_style, "llm": s.llm_model,
-            "voice": s.voice_id, "series": p.manifest.source.get("series_id"), "v": 3}
+            **({"tone": s.tone} if s.tone != "normal" else {}),
+            "voice": s.voice_id, "series": p.manifest.source.get("series_id"), "v": 3,
+            **({"intro": s.intro_seconds} if s.hook_intro and s.mode == "recap" else {})}
 
 
 def stage_script(ctx: Context) -> dict[str, str]:
@@ -411,6 +476,17 @@ def stage_script(ctx: Context) -> dict[str, str]:
                               "voice_id": None})
             if not beats:
                 raise RecapError("llm_failed", "Script ထဲမှာ beat မပါပါ။ Retry လုပ်ပါ။")
+            intro = out.get("intro") or {}
+            itext = apply_names(norm_for(intro.get("intro", ""), ctx.settings.language), mem["characters"],
+                                ctx.settings.language)
+            if itext:
+                montage = [r for r in validate_ranges(intro.get("montage"), dur, shots) if r[1] - r[0] >= 0.8][:6]
+                if len(montage) < 3:  # fall back to the most important visual events across the video
+                    top = sorted(mem["events"], key=lambda e: (-int(e.get("importance", 3) or 3), not e.get("visual")))[:5]
+                    montage = sorted([[round(e["start"], 2), round(min(e["end"], e["start"] + 3), 2)] for e in top])
+                beats.insert(0, {"id": 0, "kind": "intro", "narration": itext, "source_ranges": montage,
+                                 "characters": [], "visual_query": "the most dramatic moment, close-up, intense emotion",
+                                 "why_this_clip": intro.get("why_watch", ""), "importance": 5, "voice_id": None})
             # beats with no valid range: inherit neighbouring range so footage stays in story order
             for i, b in enumerate(beats):
                 if not b["source_ranges"]:
@@ -486,7 +562,7 @@ def translate_lines(ctx: Context, cues: list[dict], mem: dict, batch: int = 25) 
     names = "\n".join(f"- {c['zh']} => {c['my']} ({c.get('role', '')})" for c in mem["characters"])
     system = (f"You are a professional Chinese-to-{lang} drama dubbing translator. Translate into natural SPOKEN {lang} "
               "that fits lip-sync length: short, colloquial, same meaning and emotion, never literal word-by-word. "
-              "Use the character names table exactly.")
+              "Use the character names table exactly." + tone_rule(s.tone))
     for k in range(0, len(segs), batch):
         part = segs[k:k + batch]
         ctx.progress(0.5 + 0.45 * k / max(1, len(segs)), f"စကားပြောတွေ ဘာသာပြန်နေပါတယ် {k}/{len(segs)}")

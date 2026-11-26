@@ -1,4 +1,4 @@
-﻿"""Fit video to narration: choose clips per beat so footage length == speech length.
+"""Fit video to narration: choose clips per beat so footage length == speech length.
 Speech is never time-stretched (except Pro mode's capped last-resort speed-up)."""
 from __future__ import annotations
 
@@ -10,7 +10,37 @@ GAP = 0.25  # pause after each beat
 MIN_CLIP = 1.2
 
 
+MONTAGE_CLIP = 2.2  # intro teaser: short cuts from across the whole video
+
+
+def pick_montage(beat: dict, need: float, shots: dict[int, dict], duration: float) -> list[dict]:
+    """Intro teaser: ~2 s from each montage range, in story order, cycling until the voice is covered.
+    Montage shots are not marked used, so the recap can still show them in full later."""
+    ranges = [r for r in (beat.get("source_ranges") or []) if r[1] - r[0] > 0.3] or [[0.0, min(duration, 10.0)]]
+    clips: list[dict] = []
+    have, k, offs = 0.0, 0, [0.0] * len(ranges)
+    while have < need - 1e-3 and k < 60:
+        i = k % len(ranges)
+        a, b = ranges[i]
+        st = a + offs[i]
+        if st >= b - 0.3:  # range used up: continue just after it
+            st, b = b, min(duration, b + MONTAGE_CLIP * 2)
+            ranges[i] = [a, b]
+        take = min(MONTAGE_CLIP, b - st, need - have)
+        if take > 0.25:
+            clips.append({"shot": None, "src_start": round(st, 3), "src_end": round(st + take, 3), "score": 0.0})
+            have += take
+            offs[i] += take
+        k += 1
+    if clips and have < need - 1e-3:  # a sliver too short for its own cut: stretch the last clip
+        last = clips[-1]
+        last["src_end"] = round(min(duration, last["src_end"] + need - have), 3)
+    return clips
+
+
 def pick_clips(beat: dict, need: float, used: set[int], shots: dict[int, dict], duration: float) -> list[dict]:
+    if beat.get("kind") == "intro":
+        return pick_montage(beat, need, shots, duration)
     clips: list[dict] = []
     have = 0.0
     for c in beat.get("candidates", []):

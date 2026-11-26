@@ -6,10 +6,13 @@ Run:  .venv-recap\\Scripts\\pythonw.exe -m recap_engine.desktop
 """
 from __future__ import annotations
 
+import logging
 import socket
 import sys
 import threading
 import time
+import urllib.request
+from pathlib import Path
 
 PORT = 8765
 URL = f"http://127.0.0.1:{PORT}"
@@ -21,6 +24,25 @@ def _port_open() -> bool:
         return s.connect_ex(("127.0.0.1", PORT)) == 0
 
 
+def _responsive(timeout: float = 4.0) -> bool:
+    """True if the server answers HTTP (an open port alone can be a hung/zombie server -> blank window)."""
+    try:
+        with urllib.request.urlopen(f"{URL}/", timeout=timeout) as r:
+            return r.status == 200
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _fail(msg: str) -> int:
+    logging.error(msg)
+    try:
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(0, msg, "Drama Recap Studio", 0x10)
+    except Exception:  # noqa: BLE001
+        pass
+    return 1
+
+
 def _serve() -> None:
     import uvicorn
 
@@ -30,12 +52,23 @@ def _serve() -> None:
 
 def main() -> int:
     import webview
-    if not _port_open():  # reuse a running server (e.g. started by the .bat); otherwise start our own
+    log = Path(__file__).resolve().parents[2] / "desktop.log"  # pythonw has no console: keep errors somewhere
+    try:
+        logging.basicConfig(filename=str(log), level=logging.INFO, format="%(asctime)s %(message)s", encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        pass
+    if _port_open():  # reuse a running server (e.g. started by the .bat) - but only if it really answers
+        if not _responsive(8.0):
+            return _fail(f"Port {PORT} is held by a server that does not respond. "
+                         "Close any other Drama Recap Studio window / python process, then start again.")
+    else:
         threading.Thread(target=_serve, daemon=True, name="recap-server").start()
-        for _ in range(120):
-            if _port_open():
+        for _ in range(240):  # up to ~60 s (first start imports torch etc.)
+            if _port_open() and _responsive(2.0):
                 break
             time.sleep(0.25)
+        else:
+            return _fail(f"The studio server did not start. See {log}")
 
     def _ollama() -> None:
         try:

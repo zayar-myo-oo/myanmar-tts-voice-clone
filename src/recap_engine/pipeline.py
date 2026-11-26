@@ -148,7 +148,11 @@ class Context:
 
     @property
     def settings(self):
-        return self.project.manifest.settings
+        s = self.project.manifest.settings
+        if s.caption.position == "auto":  # every stage sees a concrete position (and the wider subtitle cover)
+            from .captions import resolve_auto
+            return resolve_auto(self.project, s)
+        return s
 
     def cancelled(self) -> bool:
         if self.cancel_event.is_set():

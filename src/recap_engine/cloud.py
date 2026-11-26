@@ -21,10 +21,14 @@ import httpx
 
 from .errors import Cancelled, RecapError
 
-KEY_NAMES = ("openrouter", "assemblyai", "anthropic", "openai", "elevenlabs")
+KEY_NAMES = ("openrouter", "assemblyai", "anthropic", "openai", "elevenlabs", "gemini", "anthropic_base_url")
 KEYS_FILE = Path(__file__).resolve().parents[2] / "config" / "api_keys.json"
 OR_URL = "https://openrouter.ai/api/v1"
 AAI_URL = "https://api.assemblyai.com/v2"
+
+
+import threading
+_ovr = threading.local()  # keys being tested but not saved yet (Settings → Test)
 
 
 def load_keys() -> dict[str, str]:
@@ -38,6 +42,11 @@ def load_keys() -> dict[str, str]:
     k.setdefault("anthropic", os.environ.get("ANTHROPIC_API_KEY", ""))
     k.setdefault("openai", os.environ.get("OPENAI_API_KEY", ""))
     k.setdefault("elevenlabs", os.environ.get("ELEVENLABS_API_KEY", ""))
+    k.setdefault("gemini", os.environ.get("GEMINI_API_KEY", ""))
+    k.setdefault("anthropic_base_url", "")  # optional: a Claude-compatible relay (set in Settings, never from env)
+    for n, v in (getattr(_ovr, "v", None) or {}).items():
+        if v:
+            k[n] = v
     return k
 
 
@@ -52,28 +61,70 @@ def save_keys(changes: dict[str, str]) -> None:
 
 def masked() -> dict[str, Any]:
     k = load_keys()
-    return {n: {"set": bool(v), "hint": (v[:6] + "…" + v[-4:]) if len(v) > 12 else ("set" if v else "")}
-            for n, v in k.items() if n in KEY_NAMES}
+    out = {n: {"set": bool(v), "hint": (v[:6] + "…" + v[-4:]) if len(v) > 12 else ("set" if v else "")}
+           for n, v in k.items() if n in KEY_NAMES}
+    out["anthropic_base_url"]["value"] = k.get("anthropic_base_url", "")  # a URL is not a secret: show it in full
+    out["anthropic_base_url"]["hint"] = k.get("anthropic_base_url", "")
+    return out
 
 
 def _key(name: str) -> str:
     v = load_keys().get(name, "")
     if not v:
         label = {"openrouter": "OpenRouter", "assemblyai": "AssemblyAI", "anthropic": "Claude (Anthropic)", "openai": "OpenAI",
-                 "elevenlabs": "ElevenLabs"}[name]
+                 "elevenlabs": "ElevenLabs", "gemini": "Google AI Studio (Gemini)"}[name]
         raise RecapError("missing_key", f"{label} API key မထည့်ရသေးပါ။ Settings → API Key မှာ ထည့်ပါ။")
     return v
 
 
-def test_key(name: str) -> dict:
-    if name in ("openai", "elevenlabs"):
+# models of a Claude-compatible relay carry their own names (the app asks for opus-5-5 / sonnet-5-5)
+RELAY_MODELS = {"claude-opus-5-5": "claude-opus-4.8", "claude-sonnet-5-5": "claude-sonnet-5", "claude-haiku-5-5": "claude-sonnet-5"}
+
+
+def anthropic_relay() -> str:
+    return (load_keys().get("anthropic_base_url") or "").strip().rstrip("/")
+
+
+def anthropic_model(model: str) -> str:
+    return RELAY_MODELS.get(model, model) if anthropic_relay() else model
+
+
+def anthropic_client(timeout: float = 900, max_retries: int = 2):
+    """Anthropic client for the saved key; with a base URL set it talks to that relay (Bearer token) instead."""
+    import anthropic
+    key, base = _key("anthropic"), anthropic_relay()
+    if base:
+        return anthropic.Anthropic(auth_token=key, base_url=base, timeout=timeout, max_retries=max_retries)
+    return anthropic.Anthropic(api_key=key, timeout=timeout, max_retries=max_retries)
+
+
+def test_key(name: str, override: dict | None = None) -> dict:
+    """Test the saved key - or, when `override` is given, the values typed in Settings (nothing is saved)."""
+    if name not in KEY_NAMES or name == "anthropic_base_url":
+        return {"ok": False, "message": "ဒီကွက်ကို Test လုပ်လို့ မရပါ (Claude key ကွက်မှာ Test နှိပ်ပါ)"}
+    _ovr.v = override or {}
+    try:
+        res = _test_key(name)
+        if res.get("ok") and name == "anthropic" and anthropic_relay():
+            res["message"] += f" (relay: {anthropic_relay()})"
+        return res
+    finally:
+        _ovr.v = {}
+
+
+def _test_key(name: str) -> dict:
+    if name in ("openai", "elevenlabs", "gemini"):
         from .providers import test
         return test(name)
     try:
         if name == "anthropic":
             import anthropic
             try:
-                anthropic.Anthropic(api_key=_key(name), max_retries=0, timeout=20).models.list(limit=1)
+                c = anthropic_client(20, 0)
+                if anthropic_relay():  # relays often have no /models - a 1-token message is the real test
+                    c.messages.create(model=anthropic_model("claude-sonnet-5-5"), max_tokens=4, messages=[{"role": "user", "content": "hi"}])
+                else:
+                    c.models.list(limit=1)
                 return {"ok": True, "message": "Key အလုပ်လုပ်ပါတယ်"}
             except anthropic.AuthenticationError:
                 return {"ok": False, "message": "Key မမှန်ပါ (401)"}

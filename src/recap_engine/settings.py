@@ -25,7 +25,8 @@ class CaptionStyle(BaseModel):
     shadow: float = 1.5
     box: bool = False
     box_color: str = "#000000AA"
-    position: Literal["bottom", "middle", "top", "custom"] = "bottom"
+    # auto: on top of the burned-in subtitle band the OCR stage found (bottom when there is none)
+    position: Literal["bottom", "middle", "top", "custom", "auto"] = "bottom"
     pos_pct: float = Field(0.86, ge=0.05, le=0.98)  # custom: vertical centre as fraction of height
     width_pct: float = Field(1.0, ge=0.3, le=1.0)  # caption width; 1.0 = auto safe margins
     bold: bool = True
@@ -118,6 +119,13 @@ class ProjectSettings(BaseModel):
     height: int = 1920  # derived from aspect when rendering; proxy uses smaller
     voice_id: str = "male_calm"
     narration_style: Literal["storyteller", "calm", "suspense", "energetic", "documentary"] = "storyteller"
+    # how the script talks: normal, rude (crude street-talk commentary with swearing) or funny (jokes and exaggeration);
+    # the story facts stay the same in all three
+    tone: Literal["normal", "rude", "funny"] = "normal"
+    # Recap: open with a teaser intro written from the WHOLE story (why it is worth watching, no spoilers)
+    # over a fast montage of its key moments, then the normal recap. Made for narration-only videos.
+    hook_intro: bool = False
+    intro_seconds: float = Field(12, ge=6, le=30)
     caption: CaptionStyle = CaptionStyle()
     mirror: bool = False
     zoom: float = Field(1.0, ge=1.0, le=1.3)

@@ -55,3 +55,15 @@ def fixture_video(tmp_path_factory) -> Path:
         pytest.skip("ffmpeg not installed")
     d = tmp_path_factory.mktemp("media")
     return make_fixture_video(d / "zh_test.mp4")
+
+
+@pytest.fixture(autouse=True)
+def _isolated_api_keys(tmp_path, monkeypatch):
+    """Tests must never read the developer's real config/api_keys.json (a saved Claude relay URL changes which API path is used)."""
+    try:
+        from recap_engine import cloud
+    except ImportError:
+        return
+    monkeypatch.setattr(cloud, "KEYS_FILE", tmp_path / "api_keys.json")
+    for var in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "GEMINI_API_KEY", "ELEVENLABS_API_KEY", "ASSEMBLYAI_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
